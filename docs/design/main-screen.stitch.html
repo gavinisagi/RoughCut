@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RoughCut - 自动静音移除工具</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#2a2a2a",
+                      "surface": "#131313",
+                      "error-container": "#93000a",
+                      "on-surface-variant": "#c2c6d6",
+                      "inverse-primary": "#005ac2",
+                      "outline-variant": "#424754",
+                      "on-tertiary-fixed": "#2a1700",
+                      "on-tertiary-container": "#3e2400",
+                      "on-error": "#690005",
+                      "on-primary": "#002e6a",
+                      "tertiary": "#ffb95f",
+                      "background": "#131313",
+                      "surface-container-low": "#1c1b1b",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-background": "#e5e2e1",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "secondary-fixed-dim": "#4edea3",
+                      "error": "#ffb4ab",
+                      "on-primary-container": "#00285d",
+                      "surface-container-highest": "#353534",
+                      "on-secondary-container": "#00311f",
+                      "on-secondary-fixed-variant": "#005236",
+                      "surface-bright": "#393939",
+                      "inverse-on-surface": "#313030",
+                      "surface-container": "#201f1f",
+                      "on-primary-fixed-variant": "#004395",
+                      "on-primary-fixed": "#001a42",
+                      "tertiary-container": "#ca8100",
+                      "primary": "#3b82f6",
+                      "on-secondary-fixed": "#002113",
+                      "primary-fixed-dim": "#3b82f6",
+                      "inverse-surface": "#e5e2e1",
+                      "secondary-fixed": "#6ffbbe",
+                      "on-error-container": "#ffdad6",
+                      "surface-tint": "#3b82f6",
+                      "on-tertiary": "#472a00",
+                      "outline": "#8c909f",
+                      "surface-container-lowest": "#0e0e0e",
+                      "surface-variant": "#353534",
+                      "tertiary-fixed": "#ffddb8",
+                      "on-surface": "#e5e2e1",
+                      "secondary-container": "#00a572",
+                      "primary-container": "#1e3a8a",
+                      "on-secondary": "#003824",
+                      "primary-fixed": "#d8e2ff",
+                      "surface-dim": "#131313",
+                      "secondary": "#2dd4bf"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "space-md": "16px",
+                      "space-xs": "4px",
+                      "panel-gutter": "1px",
+                      "toolbar-height": "48px",
+                      "space-sm": "8px",
+                      "space-lg": "24px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "timecode-lg": [
+                              "JetBrains Mono"
+                      ],
+                      "label-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "timecode-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-mono": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0em",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #131313;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #353534;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #424754;
+        }
+
+        /* Tonal Layering and Borders */
+        .panel {
+            background-color: #121212;
+            border: 1px solid #2A2A2A;
+        }
+        .panel-header {
+            background-color: #1A1A1A;
+            border-bottom: 1px solid #2A2A2A;
+        }
+        
+        /* Structural Gutter */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: auto 1fr 300px;
+            grid-template-rows: auto 1fr 300px;
+            height: 100vh;
+            background-color: #0A0A0A; /* Level 0 Void */
+            gap: 1px; /* 1px structural gutter */
+            overflow: hidden;
+        }
+
+        .top-nav { grid-column: 1 / -1; grid-row: 1; }
+        .side-nav { grid-column: 1; grid-row: 2 / -1; }
+        .preview-panel { grid-column: 2; grid-row: 2; }
+        .inspector-panel { grid-column: 3; grid-row: 2; }
+        .timeline-panel { grid-column: 2 / -1; grid-row: 3; }
+
+        @media (max-width: 1280px) {
+            .workspace-grid {
+                grid-template-columns: auto 1fr;
+            }
+            .inspector-panel { display: none; }
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -4px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #353534;
+            border-radius: 2px;
+        }
+
+      </style>
+</head>
+<body class="bg-background text-on-surface antialiased overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<div class="workspace-grid">
+<!-- TopNavBar Component -->
+<nav class="top-nav bg-surface-container-low dark:bg-surface-container-low text-primary dark:text-primary flex justify-between items-center h-toolbar-height px-space-md w-full border-b border-outline-variant dark:border-outline-variant z-50">
+<div class="flex items-center gap-space-lg">
+<div class="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary tracking-tight">RoughCut</div>
+<div class="flex space-x-space-md ml-space-lg">
+<span class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors px-2 py-1 rounded cursor-pointer">文件</span>
+<span class="font-label-mono text-label-mono text-primary dark:text-primary border-b-2 border-primary hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors px-2 py-1 cursor-pointer">编辑</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors px-2 py-1 rounded cursor-pointer">序列</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors px-2 py-1 rounded cursor-pointer">视图</span>
+<span class="font-label-mono text-label-mono text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-highest dark:hover:bg-surface-container-highest transition-colors px-2 py-1 rounded cursor-pointer">窗口</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md">
+<span class="font-label-mono text-label-mono text-on-surface-variant">Vlog_Raw_Take1</span>
+<button class="bg-primary hover:bg-primary-container text-white font-label-mono text-label-mono px-4 py-1.5 rounded transition-colors opacity-80 hover:opacity-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">ios_share</span> 导出
+                </button>
+<div class="flex gap-2">
+<button class="p-1 hover:bg-surface-container-highest rounded text-on-surface-variant"><span class="material-symbols-outlined">settings</span></button>
+<button class="p-1 hover:bg-surface-container-highest rounded text-on-surface-variant"><span class="material-symbols-outlined">help</span></button>
+</div>
+</div>
+</nav>
+<!-- SideNavBar Component -->
+<aside class="side-nav bg-surface-container dark:bg-surface-container text-secondary dark:text-secondary flex flex-col items-center py-space-md gap-space-lg w-16 h-[calc(100vh-48px)] border-r border-outline-variant dark:border-outline-variant z-40">
+<div class="flex flex-col gap-space-sm w-full px-2 mt-4 flex-grow">
+<button class="p-2 w-full flex justify-center bg-primary-container dark:bg-primary-container text-primary rounded-lg hover:text-white transition-colors group relative" title="Media">
+<span class="material-symbols-outlined scale-95 transition-transform">folder_open</span>
+</button>
+<button class="p-2 w-full flex justify-center text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors hover:bg-surface-container-highest rounded-lg" title="Effects">
+<span class="material-symbols-outlined">content_cut</span>
+</button>
+<button class="p-2 w-full flex justify-center text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors hover:bg-surface-container-highest rounded-lg" title="History">
+<span class="material-symbols-outlined">history</span>
+</button>
+</div>
+<div class="flex flex-col gap-space-sm w-full px-2 mb-4">
+<button class="p-2 w-full flex justify-center text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors hover:bg-surface-container-highest rounded-lg" title="Settings">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</aside>
+<!-- Preview Monitor -->
+<section class="preview-panel panel flex flex-col h-full bg-[#050505]">
+<header class="panel-header px-space-md py-[4px] flex justify-between items-center h-8">
+<div class="flex gap-4">
+<span class="font-label-mono text-label-mono text-primary border-b border-primary pb-1 cursor-pointer">监视器</span>
+</div>
+<div class="font-label-mono text-label-mono text-on-surface-variant flex gap-4">
+<span>Fit</span>
+<span>1/2</span>
+<span class="material-symbols-outlined text-[16px] cursor-pointer hover:text-primary">fullscreen</span>
+</div>
+</header>
+<div class="flex-1 relative flex items-center justify-center p-0 bg-black overflow-hidden">
+<img class="w-full h-full object-contain" data-alt="A portrait shot of a vlogger speaking to the camera, standing in a modern, dark-themed studio setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxZhE_dLt7n4USNsIP71PjM4qL7LBoGjUVT35kQk5fofGsh54ZzYG9icfPy-of6X0ke-J3ZGB-vVvnlX2ZyRk0btI41RvlcJ54tr6GVobjcMxN3nV87FhsvOd2E63MEHhVhjvPQE7evIAVWJV_UDyZQCtCVLKR9LwlPTgFqcKvrlmBGCDLKzqAiEHngCHGHm4KbLwq7Phx7jLMF3hf49-epndP8ReDGXDrJc3hP4TEDU-hgZE1OCLExr4pSHG4lS0m-1lqacZ2z0s"/>
+<button class="absolute bottom-4 right-4 bg-surface-container-highest/80 hover:bg-primary/20 text-on-surface p-2 rounded border border-outline-variant hover:border-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">aspect_ratio</span>
+<span class="font-label-mono text-xs">紧凑模式</span>
+</button>
+</div>
+<div class="h-toolbar-height bg-surface-container flex items-center justify-between px-space-lg border-t border-outline-variant">
+<div class="font-timecode-lg text-timecode-lg text-primary tracking-widest font-bold">00:04:12:15</div>
+<div class="flex items-center gap-space-sm">
+<button class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined">skip_previous</span></button>
+<button class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined">fast_rewind</span></button>
+<button class="w-10 h-10 flex items-center justify-center bg-primary text-white rounded-full hover:bg-primary-container transition-colors"><span class="material-symbols-outlined font-variation-settings-'FILL'-1 text-[24px]">play_arrow</span></button>
+<button class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined">fast_forward</span></button>
+<button class="w-8 h-8 flex items-center justify-center text-on-surface hover:text-primary hover:bg-surface-container-highest rounded"><span class="material-symbols-outlined">skip_next</span></button>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">volume_up</span>
+<div class="w-24 h-1 bg-surface-container-highest rounded">
+<div class="h-full bg-primary w-2/3 rounded"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Inspector Panel -->
+<section class="inspector-panel panel flex flex-col h-full overflow-hidden">
+<header class="panel-header px-space-md py-space-sm flex justify-between items-center">
+<h2 class="font-label-mono text-label-mono text-on-surface uppercase">参数设置</h2>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px] hover:text-primary cursor-pointer">tune</span>
+</header>
+<div class="flex-1 overflow-y-auto p-space-md space-y-space-lg">
+<!-- Parameters Card -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-4 space-y-5">
+<div class="space-y-1">
+<div class="flex justify-between">
+<label class="font-body-sm text-body-sm text-on-surface-variant">目标间隔</label>
+<span class="font-label-mono text-label-mono text-primary">0.30s</span>
+</div>
+<input max="2" min="0" step="0.01" type="range" value="0.3"/>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between">
+<label class="font-body-sm text-body-sm text-on-surface-variant">最小停顿</label>
+<span class="font-label-mono text-label-mono text-primary">0.45s</span>
+</div>
+<input max="2" min="0" step="0.01" type="range" value="0.45"/>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between">
+<label class="font-body-sm text-body-sm text-on-surface-variant">静音阈值</label>
+<span class="font-label-mono text-label-mono text-primary">-38dB</span>
+</div>
+<input max="0" min="-60" step="1" type="range" value="-38"/>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<div>
+<label class="font-body-sm text-body-sm text-on-surface-variant block mb-1">头部留白 (ms)</label>
+<input class="w-full bg-surface border border-outline-variant rounded px-2 py-1 text-on-surface font-label-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" type="number" value="100"/>
+</div>
+<div>
+<label class="font-body-sm text-body-sm text-on-surface-variant block mb-1">尾部留白 (ms)</label>
+<input class="w-full bg-surface border border-outline-variant rounded px-2 py-1 text-on-surface font-label-mono text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none" type="number" value="100"/>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary-container text-white font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined">auto_fix_high</span>
+            一键粗剪
+        </button>
+<!-- Statistics Card -->
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-4 space-y-3">
+<h3 class="font-label-mono text-label-mono text-on-surface font-bold border-b border-outline-variant pb-2 mb-2">统计信息</h3>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">原始时长</span>
+<span class="font-label-mono text-label-mono text-on-surface">12:45.00</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">剪辑后时长</span>
+<span class="font-label-mono text-label-mono text-secondary">08:12.30</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">移除停顿数</span>
+<span class="font-label-mono text-label-mono text-primary">42</span>
+</div>
+<div class="flex justify-between items-center pt-2 border-t border-outline-variant/50">
+<span class="font-body-sm text-body-sm text-on-surface-variant font-bold">节省时间</span>
+<span class="font-label-mono text-label-mono text-error font-bold">-04:32.70</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Timeline Panel -->
+<section class="timeline-panel panel flex flex-col h-full bg-[#0A0A0A]">
+<!-- Cut-point chips strip -->
+<div class="h-10 bg-surface border-b border-outline-variant flex items-center px-4 gap-2 overflow-x-auto whitespace-nowrap">
+<span class="font-body-sm text-on-surface-variant mr-2">剪辑点:</span>
+<div class="inline-flex items-center bg-surface-container-highest border border-outline-variant rounded-full px-3 py-1 cursor-pointer hover:border-primary">
+<span class="font-label-mono text-[10px] text-on-surface-variant mr-2">#1</span>
+<span class="font-label-mono text-xs text-on-surface">00:12</span>
+<span class="font-label-mono text-[10px] text-error ml-2">-1.2s</span>
+</div>
+<div class="inline-flex items-center bg-primary/20 border border-primary rounded-full px-3 py-1 cursor-pointer shadow-[0_0_8px_rgba(59,130,246,0.3)]">
+<span class="font-label-mono text-[10px] text-primary mr-2">#2</span>
+<span class="font-label-mono text-xs text-white">01:05</span>
+<span class="font-label-mono text-[10px] text-error ml-2">-0.8s</span>
+</div>
+<div class="inline-flex items-center bg-surface-container-highest border border-outline-variant rounded-full px-3 py-1 cursor-pointer hover:border-primary">
+<span class="font-label-mono text-[10px] text-on-surface-variant mr-2">#3</span>
+<span class="font-label-mono text-xs text-on-surface">02:34</span>
+<span class="font-label-mono text-[10px] text-error ml-2">-2.4s</span>
+</div>
+<div class="inline-flex items-center bg-surface-container-highest border border-outline-variant rounded-full px-3 py-1 cursor-pointer hover:border-primary">
+<span class="font-label-mono text-[10px] text-on-surface-variant mr-2">#4</span>
+<span class="font-label-mono text-xs text-on-surface">03:15</span>
+<span class="font-label-mono text-[10px] text-error ml-2">-0.5s</span>
+</div>
+</div>
+<!-- Timeline Ruler -->
+<div class="h-6 bg-surface border-b border-outline-variant flex items-end px-4 relative overflow-hidden">
+<div class="absolute left-[300px] top-0 bottom-0 w-[2px] bg-primary z-20 flex justify-center">
+<div class="w-3 h-3 bg-primary absolute -top-1 clip-polygon-[50%_100%,_0_0,_100%_0]"></div>
+</div>
+<!-- Ruler Marks (Mockup) -->
+<div class="w-full flex justify-between font-label-mono text-[10px] text-on-surface-variant/50 pb-1 pl-12">
+<span>00:00</span>
+<span>00:01</span>
+<span>00:02</span>
+<span>00:03</span>
+<span class="text-on-surface">00:04</span>
+<span>00:05</span>
+<span>00:06</span>
+<span>00:07</span>
+</div>
+</div>
+<!-- Full Width Audio Track Canvas -->
+<div class="flex-1 relative bg-[#121212] w-full overflow-x-auto flex">
+<!-- Playhead Line -->
+<div class="absolute left-[312px] top-0 bottom-0 w-[1px] bg-primary z-30 shadow-[0_0_4px_rgba(59,130,246,0.5)]"></div>
+<div class="absolute inset-y-4 left-4 right-4 flex">
+<!-- Audio Track Container -->
+<div class="relative w-[1200px] h-full bg-surface-container/30 border border-outline-variant/30 rounded flex items-center justify-center overflow-hidden">
+<!-- Silence Overlays (Red Regions) -->
+<div class="absolute top-0 bottom-0 left-[150px] w-[30px] bg-error/20 border-x border-error/50 z-10 flex flex-col items-center justify-between py-1">
+<div class="w-[1px] h-full bg-error/30 absolute"></div>
+<span class="font-label-mono text-[8px] text-error/80 bg-surface-container/50 px-1 rounded absolute top-2">-1.2s</span>
+</div>
+<div class="absolute top-0 bottom-0 left-[350px] w-[20px] bg-error/30 border-x border-error z-10 flex flex-col items-center justify-between py-1 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+<div class="w-[1px] h-full bg-error/50 absolute"></div>
+<span class="font-label-mono text-[8px] text-error bg-surface-container/80 px-1 rounded absolute top-2">-0.8s</span>
+</div>
+<div class="absolute top-0 bottom-0 left-[600px] w-[60px] bg-error/20 border-x border-error/50 z-10 flex flex-col items-center justify-between py-1">
+<div class="w-[1px] h-full bg-error/30 absolute"></div>
+<span class="font-label-mono text-[8px] text-error/80 bg-surface-container/50 px-1 rounded absolute top-2">-2.4s</span>
+</div>
+<!-- Waveform Teal -->
+<svg class="w-full h-[80%] opacity-90 absolute z-0" preserveaspectratio="none" viewbox="0 0 100 20">
+<!-- First speaking part -->
+<path d="M0,10 L1,6 L2,14 L3,3 L4,17 L5,5 L6,15 L7,8 L8,12 L9,4 L10,16 L11,9 L12,11 M12,11 L13,10 L14,10 L15,10 M15,10 L16,5 L17,16 L18,4 L19,15 L20,7 L21,13 L22,2 L23,18 L24,6 L25,14 L26,9 L27,11 M27,11 L28,10 L29,10 M29,10 L30,4 L31,17 L32,5 L33,16 L34,7 L35,13 L36,3 L37,18 L38,6 L39,15 L40,8 L41,12 M41,12 L42,10 L43,10 L44,10 L45,10 L46,10 L47,10 M47,10 L48,5 L49,16 L50,4 L51,15 L52,7 L53,13 L54,2 L55,18 L56,6 L57,14 L58,9 L59,11 M59,11 L60,10 L61,10 L62,10 L63,10 L64,10 L65,10 L66,10 L67,10 L68,10 L69,10 L70,10 L71,10 M71,10 L72,4 L73,17 L74,5 L75,16 L76,7 L77,13 L78,3 L79,18 L80,6 L81,15 L82,8 L83,12 M83,12 L84,10 L85,10 M85,10 L86,5 L87,16 L88,4 L89,15 L90,7 L91,13 L92,2 L93,18 L94,6 L95,14 L96,9 L97,11 L98,7 L99,13 L100,10" fill="none" stroke="#2dd4bf" stroke-linejoin="round" stroke-width="0.3"></path>
+<path d="M0,10 L1,8 L2,12 L3,6 L4,15 L5,7 L6,13 L7,9 L8,11 L9,5 L10,14 L11,8 L12,10 M12,10 L13,10 L14,10 L15,10 M15,10 L16,7 L17,14 L18,6 L19,13 L20,8 L21,11 L22,5 L23,16 L24,7 L25,12 L26,9 L27,10 M27,10 L28,10 L29,10 M29,10 L30,6 L31,15 L32,7 L33,14 L34,8 L35,11 L36,5 L37,16 L38,7 L39,13 L40,9 L41,11 M41,11 L42,10 L43,10 L44,10 L45,10 L46,10 L47,10 M47,10 L48,7 L49,14 L50,6 L51,13 L52,8 L53,11 L54,5 L55,16 L56,7 L57,12 L58,9 L59,10 M59,10 L60,10 L61,10 L62,10 L63,10 L64,10 L65,10 L66,10 L67,10 L68,10 L69,10 L70,10 L71,10 M71,10 L72,6 L73,15 L74,7 L75,14 L76,8 L77,11 L78,5 L79,16 L80,7 L81,13 L82,9 L83,11 M83,11 L84,10 L85,10 M85,10 L86,7 L87,14 L88,6 L89,13 L90,8 L91,11 L92,5 L93,16 L94,7 L95,12 L96,9 L97,10 L98,8 L99,11 L100,10" fill="none" opacity="0.5" stroke="#2dd4bf" stroke-linejoin="round" stroke-width="0.3"></path>
+</svg>
+</div>
+</div>
+</div>
+</section>
+</div>
+</body></html>

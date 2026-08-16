@@ -1,0 +1,21 @@
+node_modules/
+dist/
+out/
+*.tsbuildinfo
+
+# local artifacts
+smoke.png
+sample.mp4
+*.report.json
+*.roughcut.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+*.log
+npm-debug.log*

@@ -1,0 +1,28 @@
+{
+  "name": "@roughcut/cli",
+  "version": "0.1.0",
+  "description": "RoughCut CLI: probe / analyze / cut talking-head videos from the terminal.",
+  "type": "module",
+  "bin": {
+    "roughcut": "./bin/roughcut.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test:e2e": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@roughcut/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  },
+  "license": "MIT"
+}

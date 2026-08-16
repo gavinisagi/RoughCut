@@ -1,0 +1,21 @@
+{
+  "name": "roughcut-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "One-click rough cut for talking-head videos: detect pauses and tighten them to a target gap.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @roughcut/core -w @roughcut/cli",
+    "test": "npm run test -w @roughcut/core",
+    "test:e2e": "npm run test:e2e -w @roughcut/cli",
+    "dev:desktop": "npm run dev -w roughcut-desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
