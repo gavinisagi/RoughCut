@@ -1,6 +1,6 @@
 # RoughCut · 进度看板（STATUS）
 
-> 状态：v0.1.0 已完成首个可用版本（2026-08-16），待真实素材回归与 GitHub 首推。
+> 状态：v0.1.0 已发布至 GitHub（2026-08-17，https://github.com/gavinisagi/RoughCut）。
 > Milestone v0.1.0 —— 可用的一键粗剪：GUI + CLI 全流程跑通并通过合成媒体验收。✅ 达成
 
 ## Done
@@ -18,6 +18,8 @@
 - [x] 视频冻结根因修复（D011）：rcmedia 协议实现 HTTP Range/206（此前所有 seek 回落 0 帧）；播放降级到 480p 短 GOP 代理；`--smoke-play` 连拍回归验证 8 帧烧录时间码连续递增、两处切点跳跃精确落点 `v0.1.0`
 - [x] 剪映式即时画面反馈（D010）：120p 缩略图保底层（seek 零延迟画面变动）+ 波形上方 filmstrip 胶片条 + smoke 验证 `v0.1.0`
 
+- [x] 播放实时性用户实测通过（"丝滑了"）；GitHub 首推完成（gavinisagi/RoughCut，双语 README + 徽章 + 截图）`v0.1.0`
+
 ## In Progress
 
 （无）
@@ -25,7 +27,6 @@
 ## Backlog
 
 - [ ] 真实素材听感回归：紧凑预览逐切点过一遍，确认默认参数（-38dB / 0.45s）在真实底噪下无误切漏切 `v0.1.0`
-- [ ] GitHub 仓库创建与首推（用户操作：创建 repo 后 `git remote add origin … && git push -u origin main`）`v0.1.0`
 - [ ] 自适应静音阈值（noise floor 估计，免手调 dB）
 - [ ] NVENC/QSV 硬编导出选项
 - [ ] 批量队列处理（CLI glob + GUI 多文件）
