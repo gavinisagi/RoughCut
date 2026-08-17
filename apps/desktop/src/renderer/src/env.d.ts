@@ -30,6 +30,9 @@ declare global {
       onExportProgress(cb: (ratio: number) => void): () => void;
       onProxyReady(cb: (url: string) => void): () => void;
       onProxyProgress(cb: (ratio: number) => void): () => void;
+      onThumbsReady(
+        cb: (thumbs: { intervalSec: number; images: ArrayBuffer[] }) => void,
+      ): () => void;
       onSmokeOpen(cb: (path: string) => void): () => void;
       smokeDone(): Promise<void>;
     };

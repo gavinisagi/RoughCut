@@ -4,7 +4,7 @@
  * (path to ffmpeg binary or its directory) -> system PATH.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { MediaInfo, ProgressCallback } from "./types.js";
 
@@ -202,6 +202,42 @@ export async function extractWav(
 export function chromiumCanPlay(codec: string | undefined): boolean {
   if (!codec) return false;
   return ["h264", "vp8", "vp9", "av1"].includes(codec.toLowerCase());
+}
+
+export interface ThumbnailResult {
+  /** Seconds between consecutive thumbnails (frame i covers i*intervalSec). */
+  intervalSec: number;
+  /** Number of thumbnails written (thumb_00001.jpg ... zero-padded, 1-based). */
+  count: number;
+}
+
+/**
+ * Extract a strip of low-res JPEG thumbnails for instant scrub preview
+ * (NLE-style filmstrip). Interval adapts to duration, capped at ~600 frames.
+ */
+export async function extractThumbnails(
+  path: string,
+  outDir: string,
+  opts: { durationSec: number; height?: number; onProgress?: ProgressCallback } = { durationSec: 0 },
+): Promise<ThumbnailResult> {
+  const height = opts.height ?? 120;
+  const duration = Math.max(0.001, opts.durationSec);
+  const intervalSec = Math.min(2, Math.max(0.5, duration / 300));
+  await runFfmpeg(
+    [
+      "-v", "error", "-stats",
+      "-y",
+      "-hwaccel", "auto",
+      "-i", path,
+      "-vf", `fps=${1 / intervalSec},scale=-2:${height}`,
+      "-q:v", "6",
+      "-f", "image2",
+      join(outDir, "thumb_%05d.jpg"),
+    ],
+    { expectedDurationSec: duration, onProgress: opts.onProgress },
+  );
+  const count = readdirSync(outDir).filter((f) => /^thumb_\d+\.jpg$/.test(f)).length;
+  return { intervalSec, count };
 }
 
 /** Create a small H.264 preview proxy for sources Chromium cannot decode. */

@@ -1,11 +1,12 @@
-import { useEffect, useRef } from "react";
-import { useStore } from "../store";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { thumbAt, useStore } from "../store";
 import { fmtTime } from "../util";
 
 export function VideoPane() {
   const videoUrl = useStore((s) => s.videoUrl);
   const session = useStore((s) => s.session);
   const proxyProgress = useStore((s) => s.proxyProgress);
+  const thumbs = useStore((s) => s.thumbs);
   const playhead = useStore((s) => s.playhead);
   const playMode = useStore((s) => s.playMode);
   const plan = useStore((s) => s.plan);
@@ -15,8 +16,15 @@ export function VideoPane() {
   const jumpCut = useStore((s) => s.jumpCut);
   const videoFailed = useStore((s) => s.videoFailed);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const thumbCanvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
 
   const playing = playMode !== "idle";
+
+  // True only while the <video> is showing the frame we asked for. During
+  // seeks / loading, the thumbnail canvas underneath provides instant
+  // (low-res) feedback — the NLE trick: motion first, fidelity a beat later.
+  const [videoLive, setVideoLive] = useState(false);
 
   // The <video> is a muted follower of the audio engine's playhead.
   useEffect(() => {
@@ -31,21 +39,70 @@ export function VideoPane() {
     }
   }, [playhead, playing, videoUrl]);
 
+  // Draw the nearest thumbnail (letterboxed) whenever the playhead moves.
+  const drawThumb = useCallback(() => {
+    const canvas = thumbCanvasRef.current;
+    const frame = frameRef.current;
+    if (!canvas || !frame) return;
+    const bmp = thumbAt(thumbs, playhead);
+    const dpr = window.devicePixelRatio || 1;
+    const w = frame.clientWidth;
+    const h = frame.clientHeight;
+    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+    }
+    const ctx = canvas.getContext("2d")!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, w, h);
+    if (!bmp) return;
+    const scale = Math.min(w / bmp.width, h / bmp.height);
+    const dw = bmp.width * scale;
+    const dh = bmp.height * scale;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(bmp, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }, [thumbs, playhead]);
+
+  useEffect(() => {
+    drawThumb();
+  }, [drawThumb]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const ro = new ResizeObserver(() => drawThumb());
+    ro.observe(frame);
+    return () => ro.disconnect();
+  }, [drawThumb]);
+
   const hasVideoTrack = Boolean(session?.media.video);
+  const showPlaceholder = !videoUrl && !thumbs;
 
   return (
     <section className="video-pane panel">
-      <div className="video-frame">
-        {videoUrl ? (
+      <div className="video-frame" ref={frameRef}>
+        <canvas ref={thumbCanvasRef} className="thumb-canvas" />
+        {videoUrl && (
           <video
             ref={videoRef}
             src={videoUrl}
             muted
             playsInline
             preload="auto"
-            onError={videoFailed}
+            style={{ opacity: videoLive ? 1 : 0 }}
+            onLoadStart={() => setVideoLive(false)}
+            onLoadedData={() => setVideoLive(true)}
+            onSeeking={() => setVideoLive(false)}
+            onSeeked={() => setVideoLive(true)}
+            onPlaying={() => setVideoLive(true)}
+            onError={() => {
+              setVideoLive(false);
+              videoFailed();
+            }}
           />
-        ) : (
+        )}
+        {showPlaceholder && (
           <div className="video-placeholder">
             {hasVideoTrack ? (
               <>

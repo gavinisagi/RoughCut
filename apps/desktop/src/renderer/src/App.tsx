@@ -20,15 +20,28 @@ export function App() {
     const offProgress = window.roughcut.onProxyProgress((ratio) => {
       useStore.getState().setProxyProgress(ratio);
     });
+    const offThumbs = window.roughcut.onThumbsReady((thumbs) => {
+      void useStore.getState().thumbsReady(thumbs);
+    });
     const offSmoke = window.roughcut.onSmokeOpen((path) => {
       void (async () => {
         await useStore.getState().openPath(path);
+        // Wait for the filmstrip so the screenshot exercises the full UI.
+        const t0 = Date.now();
+        while (
+          useStore.getState().session?.media.video &&
+          !useStore.getState().thumbs &&
+          Date.now() - t0 < 15_000
+        ) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
         await window.roughcut.smokeDone();
       })();
     });
     return () => {
       offProxy();
       offProgress();
+      offThumbs();
       offSmoke();
     };
   }, []);

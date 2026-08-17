@@ -1,18 +1,25 @@
 /**
  * One media session at a time: probe + analysis + preview assets in a temp dir.
  */
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ANALYSIS_SAMPLE_RATE,
   analyzeAudio,
   chromiumCanPlay,
+  extractThumbnails,
   extractWav,
   makeProxy,
   probeMedia,
   type MediaInfo,
 } from "@roughcut/core";
+
+export interface ThumbsPayload {
+  intervalSec: number;
+  /** JPEG bytes, index i covers time i*intervalSec. */
+  images: ArrayBuffer[];
+}
 
 export interface SessionPayload {
   media: MediaInfo;
@@ -57,6 +64,7 @@ export class MediaSession {
     path: string,
     onProxyReady: (url: string) => void,
     onProxyProgress?: (ratio: number) => void,
+    onThumbsReady?: (thumbs: ThumbsPayload) => void,
   ): Promise<SessionPayload> {
     this.dispose();
     this.tempDir = mkdtempSync(join(tmpdir(), "roughcut-gui-"));
@@ -96,6 +104,28 @@ export class MediaSession {
         })
         .catch((err) => {
           console.error("proxy generation failed:", err);
+        });
+    }
+
+    // Filmstrip thumbnails in the background: instant low-res scrub preview
+    // regardless of whether the <video> element can keep up.
+    if (media.video && onThumbsReady) {
+      const thumbsDir = join(this.tempDir, "thumbs");
+      mkdirSync(thumbsDir);
+      void extractThumbnails(path, thumbsDir, { durationSec: media.durationSec })
+        .then(({ intervalSec, count }) => {
+          if (token !== this.proxyToken) return;
+          const images: ArrayBuffer[] = [];
+          for (let i = 1; i <= count; i++) {
+            const buf = readFileSync(join(thumbsDir, `thumb_${String(i).padStart(5, "0")}.jpg`));
+            images.push(
+              buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer,
+            );
+          }
+          onThumbsReady({ intervalSec, images });
+        })
+        .catch((err) => {
+          console.error("thumbnail extraction failed:", err);
         });
     }
 

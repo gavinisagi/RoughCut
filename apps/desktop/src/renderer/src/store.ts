@@ -33,12 +33,29 @@ function probeDirectPlayback(codec: string | undefined): boolean {
   return mimes.some((m) => v.canPlayType(m) !== "");
 }
 
+export interface Thumbs {
+  intervalSec: number;
+  bitmaps: ImageBitmap[];
+}
+
+/** Nearest thumbnail for an original-time position. */
+export function thumbAt(thumbs: Thumbs | null, timeSec: number): ImageBitmap | null {
+  if (!thumbs || thumbs.bitmaps.length === 0) return null;
+  const idx = Math.min(
+    thumbs.bitmaps.length - 1,
+    Math.max(0, Math.round(timeSec / thumbs.intervalSec)),
+  );
+  return thumbs.bitmaps[idx];
+}
+
 interface RoughcutState {
   session: SessionPayload | null;
   videoUrl: string | null;
   /** Proxy URL once built (kept even when playing the original directly). */
   proxyUrl: string | null;
   proxyProgress: number | null;
+  /** Low-res filmstrip for instant scrub preview (NLE-style). */
+  thumbs: Thumbs | null;
   loading: string | null;
   error: string | null;
   params: AnalysisParams;
@@ -62,6 +79,7 @@ interface RoughcutState {
   jumpCut(direction: 1 | -1): void;
   proxyReady(url: string): void;
   setProxyProgress(ratio: number): void;
+  thumbsReady(payload: { intervalSec: number; images: ArrayBuffer[] }): Promise<void>;
   /** Called when the <video> errors on the original file: fall back to proxy. */
   videoFailed(): void;
   setExportState(patch: Partial<ExportState>): void;
@@ -88,6 +106,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
   videoUrl: null,
   proxyUrl: null,
   proxyProgress: null,
+  thumbs: null,
   loading: null,
   error: null,
   params: { ...DEFAULT_PARAMS },
@@ -120,6 +139,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
         videoUrl,
         proxyUrl: null,
         proxyProgress: session.proxyPending ? 0 : null,
+        thumbs: null,
         playhead: 0,
         selectedCutId: null,
         playMode: "idle",
@@ -253,6 +273,15 @@ export const useStore = create<RoughcutState>((set, get) => ({
 
   setProxyProgress(ratio) {
     set({ proxyProgress: ratio });
+  },
+
+  async thumbsReady(payload) {
+    const bitmaps = await Promise.all(
+      payload.images.map((bytes) =>
+        createImageBitmap(new Blob([bytes], { type: "image/jpeg" })),
+      ),
+    );
+    set({ thumbs: { intervalSec: payload.intervalSec, bitmaps } });
   },
 
   videoFailed() {

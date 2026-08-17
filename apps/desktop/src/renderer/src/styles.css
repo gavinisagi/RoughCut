@@ -223,19 +223,34 @@ body {
 .video-frame {
   flex: 1;
   background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   min-height: 0;
+  overflow: hidden;
+}
+
+.thumb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .video-frame video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
+  transition: opacity 0.09s;
 }
 
 .video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: var(--text-dim);
   font-size: 13px;
   padding: 20px;
@@ -422,7 +437,7 @@ select:focus {
 
 /* ---- timeline ---- */
 .timeline {
-  height: 240px;
+  height: 300px;
   margin: 10px;
   flex-shrink: 0;
   display: flex;
@@ -511,6 +526,21 @@ select:focus {
   flex: 1;
   min-height: 0;
   cursor: crosshair;
+  display: flex;
+  flex-direction: column;
+}
+
+.film-canvas {
+  height: 48px;
+  flex-shrink: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--border);
+}
+
+.wave-canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
 /* ---- empty state ---- */

@@ -116,6 +116,9 @@ void app.whenReady().then(() => {
       (ratio) => {
         if (!win.isDestroyed()) win.webContents.send("session:proxy-progress", ratio);
       },
+      (thumbs) => {
+        if (!win.isDestroyed()) win.webContents.send("session:thumbs-ready", thumbs);
+      },
     );
   });
 

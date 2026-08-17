@@ -15,6 +15,7 @@
 - [x] GUI 冒烟：--smoke 自动导入→分析→截图（docs/design/screenshot-app.png），统计与切点位置验证正确 `v0.1.0`
 - [x] 开源材料：README（EN/中文）、LICENSE(MIT)、CONTRIBUTING、.gitignore、git 初始化 `v0.1.0`
 - [x] 真实素材首测（Pocket 4K HEVC 2:22）：40 处停顿全部检出、统计正常；暴露视频预览不实时问题 → 已修复（D009：HEVC 硬解直播原片 + 短 GOP 代理 + 代理进度显示）`v0.1.0`
+- [x] 剪映式即时画面反馈（D010）：120p 缩略图保底层（seek 零延迟画面变动）+ 波形上方 filmstrip 胶片条 + smoke 验证 `v0.1.0`
 
 ## In Progress
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "../store";
+import { thumbAt, useStore } from "../store";
 import { fmtTime } from "../util";
+
+const FILM_H = 48;
 
 /** Colors matching the Obsidian Edit design system (docs/design). */
 const C = {
@@ -71,6 +73,7 @@ function CutChips() {
 function Waveform() {
   const session = useStore((s) => s.session);
   const plan = useStore((s) => s.plan);
+  const thumbs = useStore((s) => s.thumbs);
   const playhead = useStore((s) => s.playhead);
   const playMode = useStore((s) => s.playMode);
   const selectedCutId = useStore((s) => s.selectedCutId);
@@ -78,6 +81,7 @@ function Waveform() {
   const selectCut = useStore((s) => s.selectCut);
 
   const wrapRef = useRef<HTMLDivElement>(null);
+  const filmRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // viewport: seconds at left edge + horizontal scale.
@@ -115,17 +119,62 @@ function Waveform() {
     }
   }, [playhead, playMode, size.w, view.pps, view.start]);
 
+  const drawFilm = useCallback(() => {
+    const canvas = filmRef.current;
+    if (!canvas || !size.w || !view.pps) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = size.w;
+    if (canvas.width !== w * dpr || canvas.height !== FILM_H * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = FILM_H * dpr;
+    }
+    const ctx = canvas.getContext("2d")!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#0a0a0a";
+    ctx.fillRect(0, 0, w, FILM_H);
+    if (!thumbs) {
+      ctx.fillStyle = C.tick;
+      ctx.font = "11px Inter, sans-serif";
+      ctx.fillText("画面轨生成中 …", 10, FILM_H / 2 + 4);
+    }
+    if (thumbs && thumbs.bitmaps.length > 0) {
+      const first = thumbs.bitmaps[0];
+      const tileW = Math.max(24, Math.round((FILM_H * first.width) / first.height));
+      // Anchor tiles to the time grid so panning slides them smoothly.
+      const gridSec = tileW / view.pps;
+      const firstT = Math.floor(view.start / gridSec) * gridSec;
+      for (let t = firstT; t < view.start + w / view.pps; t += gridSec) {
+        const bmp = thumbAt(thumbs, t + gridSec / 2);
+        if (!bmp) continue;
+        const x = (t - view.start) * view.pps;
+        ctx.drawImage(bmp, x, 0, tileW, FILM_H);
+      }
+    }
+    // Playhead continues through the filmstrip.
+    const px = (playhead - view.start) * view.pps;
+    if (px >= 0 && px <= w) {
+      ctx.strokeStyle = C.playhead;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, FILM_H);
+      ctx.stroke();
+    }
+  }, [thumbs, playhead, size, view]);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !session || !size.w || !size.h || !view.pps) return;
     const dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== size.w * dpr || canvas.height !== size.h * dpr) {
+    const waveCanvasH = Math.max(40, size.h - FILM_H - 1);
+    if (canvas.width !== size.w * dpr || canvas.height !== waveCanvasH * dpr) {
       canvas.width = size.w * dpr;
-      canvas.height = size.h * dpr;
+      canvas.height = waveCanvasH * dpr;
     }
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const { w, h } = size;
+    const w = size.w;
+    const h = waveCanvasH;
     const rulerH = 20;
     const waveH = h - rulerH;
     const midY = rulerH + waveH / 2;
@@ -218,10 +267,11 @@ function Waveform() {
 
   useEffect(() => {
     draw();
-  }, [draw]);
+    drawFilm();
+  }, [draw, drawFilm]);
 
   const timeAt = (clientX: number): number => {
-    const rect = canvasRef.current!.getBoundingClientRect();
+    const rect = wrapRef.current!.getBoundingClientRect();
     return view.start + (clientX - rect.left) / view.pps;
   };
 
@@ -232,7 +282,7 @@ function Waveform() {
       const fit = size.w / duration;
       const factor = Math.pow(1.0015, -e.deltaY);
       const pps = Math.min(3000, Math.max(fit, v.pps * factor));
-      const rect = canvasRef.current!.getBoundingClientRect();
+      const rect = wrapRef.current!.getBoundingClientRect();
       const cursorX = e.clientX - rect.left;
       let start = cursorT - cursorX / pps;
       start = Math.max(0, Math.min(start, duration - size.w / pps));
@@ -277,7 +327,8 @@ function Waveform() {
       onMouseLeave={() => (dragRef.current = null)}
       title="点击定位 · 滚轮缩放 · 拖拽平移"
     >
-      <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
+      <canvas ref={filmRef} className="film-canvas" />
+      <canvas ref={canvasRef} className="wave-canvas" />
     </div>
   );
 }
