@@ -11,6 +11,7 @@ export interface RoughcutApi {
   reveal(path: string): Promise<void>;
   onExportProgress(cb: (ratio: number) => void): () => void;
   onProxyReady(cb: (url: string) => void): () => void;
+  onProxyProgress(cb: (ratio: number) => void): () => void;
   onSmokeOpen(cb: (path: string) => void): () => void;
   smokeDone(): Promise<void>;
 }
@@ -32,6 +33,11 @@ const api: RoughcutApi = {
     const listener = (_e: unknown, url: string) => cb(url);
     ipcRenderer.on("session:proxy-ready", listener);
     return () => ipcRenderer.removeListener("session:proxy-ready", listener);
+  },
+  onProxyProgress: (cb) => {
+    const listener = (_e: unknown, ratio: number) => cb(ratio);
+    ipcRenderer.on("session:proxy-progress", listener);
+    return () => ipcRenderer.removeListener("session:proxy-progress", listener);
   },
   onSmokeOpen: (cb) => {
     const listener = (_e: unknown, path: string) => cb(path);

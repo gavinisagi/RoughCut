@@ -5,6 +5,7 @@ import { fmtTime } from "../util";
 export function VideoPane() {
   const videoUrl = useStore((s) => s.videoUrl);
   const session = useStore((s) => s.session);
+  const proxyProgress = useStore((s) => s.proxyProgress);
   const playhead = useStore((s) => s.playhead);
   const playMode = useStore((s) => s.playMode);
   const plan = useStore((s) => s.plan);
@@ -12,6 +13,7 @@ export function VideoPane() {
   const playRaw = useStore((s) => s.playRaw);
   const stopPlayback = useStore((s) => s.stopPlayback);
   const jumpCut = useStore((s) => s.jumpCut);
+  const videoFailed = useStore((s) => s.videoFailed);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const playing = playMode !== "idle";
@@ -27,18 +29,36 @@ export function VideoPane() {
       if (!v.paused) v.pause();
       if (Math.abs(v.currentTime - playhead) > 0.05) v.currentTime = playhead;
     }
-  }, [playhead, playing]);
+  }, [playhead, playing, videoUrl]);
 
-  const proxyPending = session?.proxyPending && !videoUrl;
+  const hasVideoTrack = Boolean(session?.media.video);
 
   return (
     <section className="video-pane panel">
       <div className="video-frame">
         {videoUrl ? (
-          <video ref={videoRef} src={videoUrl} muted playsInline preload="auto" />
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            muted
+            playsInline
+            preload="auto"
+            onError={videoFailed}
+          />
         ) : (
           <div className="video-placeholder">
-            {proxyPending ? "源视频为 HEVC，正在生成预览代理 …（不影响分析与试听）" : "无画面（纯音频素材）"}
+            {hasVideoTrack ? (
+              <>
+                <p>源视频为 {session?.media.video?.codec.toUpperCase()}，本机无法直接解码</p>
+                <p>
+                  正在生成预览代理
+                  {proxyProgress !== null ? ` ${Math.round(proxyProgress * 100)}%` : ""} …
+                </p>
+                <p className="dim-note">分析、试听与导出不受影响，可先调参数</p>
+              </>
+            ) : (
+              "无画面（纯音频素材）"
+            )}
           </div>
         )}
       </div>

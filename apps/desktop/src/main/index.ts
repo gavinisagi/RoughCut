@@ -108,9 +108,15 @@ void app.whenReady().then(() => {
   });
 
   ipcMain.handle("session:open", async (_e, path: string) => {
-    return session.open(path, (url) => {
-      if (!win.isDestroyed()) win.webContents.send("session:proxy-ready", url);
-    });
+    return session.open(
+      path,
+      (url) => {
+        if (!win.isDestroyed()) win.webContents.send("session:proxy-ready", url);
+      },
+      (ratio) => {
+        if (!win.isDestroyed()) win.webContents.send("session:proxy-progress", ratio);
+      },
+    );
   });
 
   ipcMain.handle("session:export", async (_e, planJson: unknown, opts: {

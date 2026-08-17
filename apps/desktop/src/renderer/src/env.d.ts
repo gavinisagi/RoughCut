@@ -29,6 +29,7 @@ declare global {
       reveal(path: string): Promise<void>;
       onExportProgress(cb: (ratio: number) => void): () => void;
       onProxyReady(cb: (url: string) => void): () => void;
+      onProxyProgress(cb: (ratio: number) => void): () => void;
       onSmokeOpen(cb: (path: string) => void): () => void;
       smokeDone(): Promise<void>;
     };

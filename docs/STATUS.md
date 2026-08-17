@@ -14,6 +14,7 @@
 - [x] Electron GUI：导入（含拖拽）、参数实时重算、波形 Canvas（缩放/平移/点击定位）、切点 chips、逐切点试听、全片紧凑预览（Web Audio 无缝调度 + 画面跟随）、切点禁用、导出（进度/报告/WAV）、HEVC 代理 `v0.1.0`
 - [x] GUI 冒烟：--smoke 自动导入→分析→截图（docs/design/screenshot-app.png），统计与切点位置验证正确 `v0.1.0`
 - [x] 开源材料：README（EN/中文）、LICENSE(MIT)、CONTRIBUTING、.gitignore、git 初始化 `v0.1.0`
+- [x] 真实素材首测（Pocket 4K HEVC 2:22）：40 处停顿全部检出、统计正常；暴露视频预览不实时问题 → 已修复（D009：HEVC 硬解直播原片 + 短 GOP 代理 + 代理进度显示）`v0.1.0`
 
 ## In Progress
 
@@ -21,7 +22,7 @@
 
 ## Backlog
 
-- [ ] 真实素材回归：用户 Pocket 口播样片实测默认参数听感（首次真实使用后回填结论：阈值/最小停顿是否需调）`v0.1.0`
+- [ ] 真实素材听感回归：紧凑预览逐切点过一遍，确认默认参数（-38dB / 0.45s）在真实底噪下无误切漏切 `v0.1.0`
 - [ ] GitHub 仓库创建与首推（用户操作：创建 repo 后 `git remote add origin … && git push -u origin main`）`v0.1.0`
 - [ ] 自适应静音阈值（noise floor 估计，免手调 dB）
 - [ ] NVENC/QSV 硬编导出选项

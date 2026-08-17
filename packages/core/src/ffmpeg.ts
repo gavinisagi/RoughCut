@@ -219,7 +219,11 @@ export async function makeProxy(
       "-vf", `scale=-2:${height}`,
       "-c:v", "libx264",
       "-preset", "ultrafast",
+      "-tune", "fastdecode",
       "-crf", "28",
+      // Short GOP so the preview player can seek instantly at cut boundaries.
+      "-g", "30",
+      "-keyint_min", "30",
       "-pix_fmt", "yuv420p",
       "-an",
       "-movflags", "+faststart",

@@ -20,9 +20,25 @@ export interface ExportState {
   error: string | null;
 }
 
+/** Can Chromium play this codec directly (hardware decoders included)? */
+function probeDirectPlayback(codec: string | undefined): boolean {
+  if (!codec) return false;
+  const candidates: Record<string, string[]> = {
+    hevc: ['video/mp4; codecs="hvc1.1.6.L153.B0"', 'video/mp4; codecs="hev1.1.6.L153.B0"'],
+    h265: ['video/mp4; codecs="hvc1.1.6.L153.B0"'],
+  };
+  const mimes = candidates[codec.toLowerCase()];
+  if (!mimes) return false;
+  const v = document.createElement("video");
+  return mimes.some((m) => v.canPlayType(m) !== "");
+}
+
 interface RoughcutState {
   session: SessionPayload | null;
   videoUrl: string | null;
+  /** Proxy URL once built (kept even when playing the original directly). */
+  proxyUrl: string | null;
+  proxyProgress: number | null;
   loading: string | null;
   error: string | null;
   params: AnalysisParams;
@@ -44,7 +60,10 @@ interface RoughcutState {
   playRaw(from?: number): void;
   stopPlayback(): void;
   jumpCut(direction: 1 | -1): void;
-  setVideoUrl(url: string): void;
+  proxyReady(url: string): void;
+  setProxyProgress(ratio: number): void;
+  /** Called when the <video> errors on the original file: fall back to proxy. */
+  videoFailed(): void;
   setExportState(patch: Partial<ExportState>): void;
   runExport(opts: { output: string; alsoAudio: boolean; crf: number; preset: string }): Promise<void>;
   savePlan(): Promise<void>;
@@ -67,6 +86,8 @@ let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
 export const useStore = create<RoughcutState>((set, get) => ({
   session: null,
   videoUrl: null,
+  proxyUrl: null,
+  proxyProgress: null,
   loading: null,
   error: null,
   params: { ...DEFAULT_PARAMS },
@@ -87,9 +108,18 @@ export const useStore = create<RoughcutState>((set, get) => ({
     engine.unload();
     try {
       const session = await window.roughcut.openVideo(path);
+      // If the main process deemed the codec unplayable, probe whether this
+      // machine can hardware-decode it (HEVC on Windows commonly works) and
+      // use the original file directly instead of waiting for the proxy.
+      let videoUrl = session.videoUrl;
+      if (!videoUrl && session.originalVideoUrl && probeDirectPlayback(session.media.video?.codec)) {
+        videoUrl = session.originalVideoUrl;
+      }
       set({
         session,
-        videoUrl: session.videoUrl,
+        videoUrl,
+        proxyUrl: null,
+        proxyProgress: session.proxyPending ? 0 : null,
         playhead: 0,
         selectedCutId: null,
         playMode: "idle",
@@ -212,8 +242,28 @@ export const useStore = create<RoughcutState>((set, get) => ({
     get().playCut(next);
   },
 
-  setVideoUrl(url) {
-    set({ videoUrl: url });
+  proxyReady(url) {
+    set((s) => ({
+      proxyUrl: url,
+      proxyProgress: null,
+      // Keep the original if it's already playing fine; otherwise use the proxy.
+      videoUrl: s.videoUrl ?? url,
+    }));
+  },
+
+  setProxyProgress(ratio) {
+    set({ proxyProgress: ratio });
+  },
+
+  videoFailed() {
+    set((s) => {
+      // Original-file playback failed (probe was wrong): fall back to the
+      // proxy when it exists, else show the placeholder until proxy-ready.
+      if (s.videoUrl && s.videoUrl === s.session?.originalVideoUrl) {
+        return { videoUrl: s.proxyUrl };
+      }
+      return {};
+    });
   },
 
   setExportState(patch) {

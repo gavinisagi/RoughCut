@@ -15,7 +15,10 @@ export function App() {
 
   useEffect(() => {
     const offProxy = window.roughcut.onProxyReady((url) => {
-      useStore.getState().setVideoUrl(url);
+      useStore.getState().proxyReady(url);
+    });
+    const offProgress = window.roughcut.onProxyProgress((ratio) => {
+      useStore.getState().setProxyProgress(ratio);
     });
     const offSmoke = window.roughcut.onSmokeOpen((path) => {
       void (async () => {
@@ -25,6 +28,7 @@ export function App() {
     });
     return () => {
       offProxy();
+      offProgress();
       offSmoke();
     };
   }, []);

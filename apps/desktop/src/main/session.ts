@@ -27,8 +27,14 @@ export interface SessionPayload {
    * because fetch() to custom schemes is CORS-blocked from file:// pages.
    */
   previewWav: ArrayBuffer;
-  /** rcmedia:// URL the <video> can play now, or null while a proxy builds. */
+  /** rcmedia:// URL the <video> can safely play now, or null while a proxy builds. */
   videoUrl: string | null;
+  /**
+   * rcmedia:// URL of the original file whenever it has video. The renderer
+   * may probe hardware decode support (e.g. HEVC on Windows) and use this
+   * directly instead of waiting for the proxy.
+   */
+  originalVideoUrl: string | null;
   /** True when a preview proxy is being generated in the background. */
   proxyPending: boolean;
 }
@@ -50,6 +56,7 @@ export class MediaSession {
   async open(
     path: string,
     onProxyReady: (url: string) => void,
+    onProxyProgress?: (ratio: number) => void,
   ): Promise<SessionPayload> {
     this.dispose();
     this.tempDir = mkdtempSync(join(tmpdir(), "roughcut-gui-"));
@@ -78,7 +85,12 @@ export class MediaSession {
       proxyPending = true;
       const proxyPath = join(this.tempDir, "proxy.mp4");
       // Fire and forget; notify the renderer when done (stale opens ignored).
-      void makeProxy(path, proxyPath, { expectedDurationSec: media.durationSec })
+      void makeProxy(path, proxyPath, {
+        expectedDurationSec: media.durationSec,
+        onProgress: (ratio) => {
+          if (token === this.proxyToken) onProxyProgress?.(ratio);
+        },
+      })
         .then(() => {
           if (token === this.proxyToken) onProxyReady(toMediaUrl(proxyPath));
         })
@@ -97,6 +109,7 @@ export class MediaSession {
       peaks: analysis.peaks,
       previewWav,
       videoUrl,
+      originalVideoUrl: media.video ? toMediaUrl(path) : null,
       proxyPending,
     };
   }
