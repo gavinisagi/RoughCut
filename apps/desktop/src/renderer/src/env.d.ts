@@ -34,6 +34,7 @@ declare global {
         cb: (thumbs: { intervalSec: number; images: ArrayBuffer[] }) => void,
       ): () => void;
       onSmokeOpen(cb: (path: string) => void): () => void;
+      onSmokePlay(cb: () => void): () => void;
       smokeDone(): Promise<void>;
     };
   }

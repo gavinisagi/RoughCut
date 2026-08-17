@@ -97,6 +97,8 @@ export function VideoPane() {
             onSeeked={() => setVideoLive(true)}
             onPlaying={() => setVideoLive(true)}
             onError={() => {
+              const err = videoRef.current?.error;
+              console.error(`[video] error code=${err?.code} msg=${err?.message}`);
               setVideoLive(false);
               videoFailed();
             }}

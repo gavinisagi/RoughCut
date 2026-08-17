@@ -118,6 +118,9 @@ gap        = e - s
   2) 预览 WAV（44.1kHz mono，供 `decodeAudioData`；**以 ArrayBuffer 经 IPC 传给渲染进程**——`file://` 页面对自定义协议的 `fetch` 会被 CORS 拦截，`<video>` 标签则不受限，故视频走 `rcmedia://` 协议、音频走 IPC）；
   3) 源视频编码若 Chromium 不可解码（如 HEVC）→ 生成 480p H.264 代理（`-preset ultrafast -crf 28`），H.264 源直接用原文件。
 - **紧凑预览**：Web Audio 对每个保留段调度一个 `AudioBufferSourceNode`（`start(when, offset, duration)`），样本级无缝拼接；`requestAnimationFrame` 由 AudioContext 时钟反推"当前原始时间"驱动播放头在波形上跳跃前进；`<video muted>` 在段边界 seek 跟随，段内自然播放。
+- **`rcmedia://` 协议必须支持 HTTP Range（206）**：Chromium 媒体栈靠 Range 请求实现 seek，返回 200 全文件会被判定为不可寻址源、所有 seek 回落到 0（表现为"画面冻在第一帧"）。协议处理器自行解析 `Range: bytes=` 并以文件流返回 206。
+- **播放降级**：>1080p 或不可解码的源，播放一律用 480p 短 GOP（`-g 30`）代理，seek 即时；代理就绪前直播原片（能播则播）。缩略图 filmstrip（`fps≈1`、120p JPEG）作为 seek 间隙与代理等待期的画面保底，也渲染在波形上方作胶片条。
+- **回归工具**：`electron . --smoke <video> --smoke-play` 自动导入、播放并连拍 8 帧截图，检查烧录时间码递增即可验证画面实时跟随。
 - **切点试听**：即紧凑预览限定窗口——切点前后各 1.2s 的保留内容。
 - 参数或 enabled 变化 → 重建调度表；音频缓冲不变，无需重新解码。
 

@@ -1,12 +1,11 @@
-import { writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { createReadStream, statSync, writeFileSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
+import { Readable } from "node:stream";
 import {
   BrowserWindow,
   app,
   dialog,
   ipcMain,
-  net,
   protocol,
   shell,
 } from "electron";
@@ -18,6 +17,8 @@ const session = new MediaSession();
 const smokeIndex = process.argv.indexOf("--smoke");
 const SMOKE = smokeIndex >= 0;
 const smokeVideo = SMOKE ? process.argv[smokeIndex + 1] : undefined;
+/** With --smoke-play, start compact preview and capture a burst of frames. */
+const SMOKE_PLAY = process.argv.includes("--smoke-play");
 const SMOKE_OUT = resolve(process.cwd(), "smoke.png");
 
 protocol.registerSchemesAsPrivileged([
@@ -51,6 +52,27 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+/** Capture N frames during playback to prove the preview actually moves. */
+async function captureSeries(win: BrowserWindow, count: number, gapMs: number): Promise<void> {
+  for (let i = 1; i <= count; i++) {
+    const out = resolve(process.cwd(), `smoke-play-${String(i).padStart(2, "0")}.png`);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const image = await win.webContents.capturePage();
+        if (image.isEmpty()) throw new Error("empty capture");
+        writeFileSync(out, image.toPNG());
+        console.log(`frame ${i}/${count} -> ${out}`);
+        break;
+      } catch (err) {
+        console.error(`frame ${i} attempt ${attempt} failed:`, err);
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    await new Promise((r) => setTimeout(r, gapMs));
+  }
+  app.exit(0);
+}
+
 async function captureSmoke(win: BrowserWindow): Promise<void> {
   // capturePage can transiently fail (compositor "UnknownVizError"); retry.
   for (let attempt = 1; attempt <= 5; attempt++) {
@@ -71,12 +93,59 @@ async function captureSmoke(win: BrowserWindow): Promise<void> {
 }
 
 void app.whenReady().then(() => {
+  const MIME: Record<string, string> = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
+    ".webm": "video/webm",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".mp3": "audio/mpeg",
+    ".flac": "audio/flac",
+  };
+
+  // Serve local media with proper HTTP Range support. Chromium's media stack
+  // seeks by issuing Range requests; without a 206 response it assumes the
+  // source is unseekable and every seek snaps back to 0 — which shows up as
+  // "the preview freezes on the first frame".
   protocol.handle("rcmedia", (request) => {
     try {
       const filePath = fromMediaUrl(request.url);
-      if (SMOKE) console.log(`[rcmedia] ${request.url} -> ${filePath}`);
-      return net.fetch(pathToFileURL(filePath).toString(), {
-        headers: request.headers,
+      const stat = statSync(filePath);
+      const mime = MIME[extname(filePath).toLowerCase()] ?? "application/octet-stream";
+      const range = request.headers.get("Range");
+      const m = range ? /bytes=(\d+)-(\d*)/.exec(range) : null;
+      if (m) {
+        const start = Number(m[1]);
+        const end = m[2] ? Math.min(Number(m[2]), stat.size - 1) : stat.size - 1;
+        if (start >= stat.size || end < start) {
+          return new Response(null, {
+            status: 416,
+            headers: { "Content-Range": `bytes */${stat.size}` },
+          });
+        }
+        const stream = Readable.toWeb(
+          createReadStream(filePath, { start, end }),
+        ) as ReadableStream;
+        return new Response(stream, {
+          status: 206,
+          headers: {
+            "Content-Type": mime,
+            "Accept-Ranges": "bytes",
+            "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+            "Content-Length": String(end - start + 1),
+          },
+        });
+      }
+      const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          "Content-Type": mime,
+          "Accept-Ranges": "bytes",
+          "Content-Length": String(stat.size),
+        },
       });
     } catch (err) {
       console.error(`[rcmedia] failed for ${request.url}:`, err);
@@ -179,8 +248,14 @@ void app.whenReady().then(() => {
     const timeout = setTimeout(() => void captureSmoke(win), 25_000);
     ipcMain.handleOnce("smoke:done", async () => {
       clearTimeout(timeout);
-      // Give the canvas one more frame to paint.
-      setTimeout(() => void captureSmoke(win), 600);
+      if (SMOKE_PLAY) {
+        win.webContents.send("smoke:play");
+        // Let playback spin up, then capture a burst across several seconds.
+        setTimeout(() => void captureSeries(win, 8, 650), 900);
+      } else {
+        // Give the canvas one more frame to paint.
+        setTimeout(() => void captureSmoke(win), 600);
+      }
     });
     win.webContents.once("did-finish-load", () => {
       if (smokeVideo && !smokeVideo.startsWith("--")) {

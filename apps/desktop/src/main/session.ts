@@ -84,12 +84,18 @@ export class MediaSession {
     ) as ArrayBuffer;
 
     const playable = media.video ? chromiumCanPlay(media.video.codec) : false;
+    // A proxy is needed when Chromium can't decode the codec at all, and also
+    // for high-res sources: seeking a 4K file freezes the picture for hundreds
+    // of ms at every segment boundary, which reads as "video not playing".
+    // Playback uses the small short-GOP proxy; the original serves export.
+    const highRes = media.video ? media.video.width * media.video.height > 1920 * 1088 : false;
     let videoUrl: string | null = null;
     let proxyPending = false;
 
-    if (media.video && playable) {
+    if (media.video && playable && !highRes) {
       videoUrl = toMediaUrl(path);
     } else if (media.video) {
+      if (playable) videoUrl = toMediaUrl(path); // play original until proxy lands
       proxyPending = true;
       const proxyPath = join(this.tempDir, "proxy.mp4");
       // Fire and forget; notify the renderer when done (stale opens ignored).

@@ -23,6 +23,9 @@ export function App() {
     const offThumbs = window.roughcut.onThumbsReady((thumbs) => {
       void useStore.getState().thumbsReady(thumbs);
     });
+    const offSmokePlay = window.roughcut.onSmokePlay(() => {
+      useStore.getState().playCompact(0);
+    });
     const offSmoke = window.roughcut.onSmokeOpen((path) => {
       void (async () => {
         await useStore.getState().openPath(path);
@@ -43,6 +46,7 @@ export function App() {
       offProgress();
       offThumbs();
       offSmoke();
+      offSmokePlay();
     };
   }, []);
 

@@ -51,8 +51,10 @@ export function thumbAt(thumbs: Thumbs | null, timeSec: number): ImageBitmap | n
 interface RoughcutState {
   session: SessionPayload | null;
   videoUrl: string | null;
-  /** Proxy URL once built (kept even when playing the original directly). */
+  /** Proxy URL once built. Playback prefers it: low-res but instant seeks. */
   proxyUrl: string | null;
+  /** Proxy that arrived mid-playback; applied when playback stops. */
+  pendingVideoUrl: string | null;
   proxyProgress: number | null;
   /** Low-res filmstrip for instant scrub preview (NLE-style). */
   thumbs: Thumbs | null;
@@ -76,6 +78,8 @@ interface RoughcutState {
   playCut(id: number): void;
   playRaw(from?: number): void;
   stopPlayback(): void;
+  /** Return to idle, applying any proxy that arrived mid-playback. */
+  settlePlayback(): void;
   jumpCut(direction: 1 | -1): void;
   proxyReady(url: string): void;
   setProxyProgress(ratio: number): void;
@@ -105,6 +109,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
   session: null,
   videoUrl: null,
   proxyUrl: null,
+  pendingVideoUrl: null,
   proxyProgress: null,
   thumbs: null,
   loading: null,
@@ -138,6 +143,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
         session,
         videoUrl,
         proxyUrl: null,
+        pendingVideoUrl: null,
         proxyProgress: session.proxyPending ? 0 : null,
         thumbs: null,
         playhead: 0,
@@ -208,7 +214,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
     const start = from ?? get().playhead;
     engine.play(rangesFrom(plan.keepSegments, start), {
       onTime: (t) => set({ playhead: t }),
-      onEnd: () => set({ playMode: "idle" }),
+      onEnd: () => get().settlePlayback(),
     });
     set({ playMode: "compact" });
   },
@@ -226,7 +232,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
         ([[Math.max(0, win[0]), win[1]]] as [number, number][]);
     engine.play(clipRanges(segments, win[0], win[1]), {
       onTime: (t) => set({ playhead: t }),
-      onEnd: () => set({ playMode: "idle" }),
+      onEnd: () => get().settlePlayback(),
     });
     set({ playMode: "cut" });
   },
@@ -237,14 +243,22 @@ export const useStore = create<RoughcutState>((set, get) => ({
     const start = from ?? get().playhead;
     engine.play([[start, session.media.durationSec || session.analysisDurationSec]], {
       onTime: (t) => set({ playhead: t }),
-      onEnd: () => set({ playMode: "idle" }),
+      onEnd: () => get().settlePlayback(),
     });
     set({ playMode: "raw" });
   },
 
   stopPlayback() {
     engine.stop();
-    set({ playMode: "idle" });
+    get().settlePlayback();
+  },
+
+  settlePlayback() {
+    set((s) => ({
+      playMode: "idle",
+      videoUrl: s.pendingVideoUrl ?? s.videoUrl,
+      pendingVideoUrl: null,
+    }));
   },
 
   jumpCut(direction) {
@@ -263,12 +277,14 @@ export const useStore = create<RoughcutState>((set, get) => ({
   },
 
   proxyReady(url) {
-    set((s) => ({
-      proxyUrl: url,
-      proxyProgress: null,
-      // Keep the original if it's already playing fine; otherwise use the proxy.
-      videoUrl: s.videoUrl ?? url,
-    }));
+    set((s) => {
+      // Playback always prefers the short-GOP proxy (instant seeks). Switching
+      // src mid-playback would glitch, so defer until playback stops.
+      if (s.playMode !== "idle") {
+        return { proxyUrl: url, proxyProgress: null, pendingVideoUrl: url };
+      }
+      return { proxyUrl: url, proxyProgress: null, videoUrl: url };
+    });
   },
 
   setProxyProgress(ratio) {

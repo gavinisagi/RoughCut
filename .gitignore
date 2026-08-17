@@ -5,6 +5,8 @@ out/
 
 # local artifacts
 smoke.png
+smoke-play-*.png
+tc-*.png
 sample.mp4
 *.report.json
 *.roughcut.json
