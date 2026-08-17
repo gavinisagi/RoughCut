@@ -121,9 +121,16 @@ function Waveform() {
 
   const drawFilm = useCallback(() => {
     const canvas = filmRef.current;
-    if (!canvas || !size.w || !view.pps) return;
+    const el = wrapRef.current;
+    if (!canvas || !el) return;
+    // Measure directly and fall back to the fit scale: the ResizeObserver's
+    // first callback can arrive after mount effects, which used to leave the
+    // timeline blank until something else forced a redraw.
+    const w = size.w || el.clientWidth;
+    const pps = view.pps || (duration > 0 && w > 0 ? w / duration : 0);
+    const start = view.pps ? view.start : 0;
+    if (!w || !pps) return;
     const dpr = window.devicePixelRatio || 1;
-    const w = size.w;
     if (canvas.width !== w * dpr || canvas.height !== FILM_H * dpr) {
       canvas.width = w * dpr;
       canvas.height = FILM_H * dpr;
@@ -141,17 +148,17 @@ function Waveform() {
       const first = thumbs.bitmaps[0];
       const tileW = Math.max(24, Math.round((FILM_H * first.width) / first.height));
       // Anchor tiles to the time grid so panning slides them smoothly.
-      const gridSec = tileW / view.pps;
-      const firstT = Math.floor(view.start / gridSec) * gridSec;
-      for (let t = firstT; t < view.start + w / view.pps; t += gridSec) {
+      const gridSec = tileW / pps;
+      const firstT = Math.floor(start / gridSec) * gridSec;
+      for (let t = firstT; t < start + w / pps; t += gridSec) {
         const bmp = thumbAt(thumbs, t + gridSec / 2);
         if (!bmp) continue;
-        const x = (t - view.start) * view.pps;
+        const x = (t - start) * pps;
         ctx.drawImage(bmp, x, 0, tileW, FILM_H);
       }
     }
     // Playhead continues through the filmstrip.
-    const px = (playhead - view.start) * view.pps;
+    const px = (playhead - start) * pps;
     if (px >= 0 && px <= w) {
       ctx.strokeStyle = C.playhead;
       ctx.lineWidth = 1.5;
@@ -160,20 +167,26 @@ function Waveform() {
       ctx.lineTo(px, FILM_H);
       ctx.stroke();
     }
-  }, [thumbs, playhead, size, view]);
+  }, [thumbs, playhead, size, view, duration]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !session || !size.w || !size.h || !view.pps) return;
+    const el = wrapRef.current;
+    if (!canvas || !el || !session) return;
+    // Same direct measurement as drawFilm (late first ResizeObserver tick).
+    const w = size.w || el.clientWidth;
+    const wrapH = size.h || el.clientHeight;
+    const pps = view.pps || (duration > 0 && w > 0 ? w / duration : 0);
+    const start = view.pps ? view.start : 0;
+    if (!w || !wrapH || !pps) return;
     const dpr = window.devicePixelRatio || 1;
-    const waveCanvasH = Math.max(40, size.h - FILM_H - 1);
-    if (canvas.width !== size.w * dpr || canvas.height !== waveCanvasH * dpr) {
-      canvas.width = size.w * dpr;
+    const waveCanvasH = Math.max(40, wrapH - FILM_H - 1);
+    if (canvas.width !== w * dpr || canvas.height !== waveCanvasH * dpr) {
+      canvas.width = w * dpr;
       canvas.height = waveCanvasH * dpr;
     }
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const w = size.w;
     const h = waveCanvasH;
     const rulerH = 20;
     const waveH = h - rulerH;
@@ -188,14 +201,14 @@ function Waveform() {
     // Ruler.
     const stepChoices = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120];
     const targetPx = 90;
-    const step = stepChoices.find((s2) => s2 * view.pps >= targetPx) ?? 300;
+    const step = stepChoices.find((s2) => s2 * pps >= targetPx) ?? 300;
     ctx.font = "10px 'JetBrains Mono', 'Consolas', monospace";
     ctx.fillStyle = C.tick;
     ctx.strokeStyle = C.grid;
     ctx.lineWidth = 1;
-    const firstTick = Math.ceil(view.start / step) * step;
-    for (let t = firstTick; t < view.start + w / view.pps; t += step) {
-      const x = (t - view.start) * view.pps;
+    const firstTick = Math.ceil(start / step) * step;
+    for (let t = firstTick; t < start + w / pps; t += step) {
+      const x = (t - start) * pps;
       ctx.beginPath();
       ctx.moveTo(x, rulerH);
       ctx.lineTo(x, h);
@@ -204,7 +217,7 @@ function Waveform() {
     }
 
     // Removed regions (under the waveform).
-    const x0 = (t: number) => (t - view.start) * view.pps;
+    const x0 = (t: number) => (t - start) * pps;
     for (const cut of cuts) {
       if (!cut.enabled) continue;
       const rs = x0(cut.remove[0]);
@@ -226,8 +239,8 @@ function Waveform() {
     const inRemoved = (t: number) =>
       cuts.some((c) => c.enabled && t >= c.remove[0] && t <= c.remove[1]);
     for (let x = 0; x < w; x++) {
-      const t0 = view.start + x / view.pps;
-      const t1 = view.start + (x + 1) / view.pps;
+      const t0 = start + x / pps;
+      const t1 = start + (x + 1) / pps;
       let f0 = Math.floor(t0 / hopSec);
       let f1 = Math.ceil(t1 / hopSec);
       if (f1 <= 0 || f0 >= frameCount) continue;
@@ -263,7 +276,7 @@ function Waveform() {
       ctx.lineTo(px, h);
       ctx.stroke();
     }
-  }, [session, plan, playhead, selectedCutId, size, view]);
+  }, [session, plan, playhead, selectedCutId, size, view, duration]);
 
   useEffect(() => {
     draw();
