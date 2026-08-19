@@ -19,11 +19,20 @@ export function SettingsDialog() {
 
         <h4 className="settings-group">转录（whisper.cpp）</h4>
         <label className="field">
-          <span>模型文件路径（ggml-*.bin，推荐 large-v3-turbo；也可设 ROUGHCUT_WHISPER_MODEL）</span>
+          <span>whisper-cli 路径（留空则自动探测：环境变量 → PATH → ~\tools\whisper\bin）</span>
+          <input
+            value={form.whisperCli}
+            spellCheck={false}
+            placeholder="C:\\Users\\你\\tools\\whisper\\bin\\Release\\whisper-cli.exe"
+            onChange={(e) => setForm({ ...form, whisperCli: e.target.value })}
+          />
+        </label>
+        <label className="field">
+          <span>模型文件路径（留空则自动探测 ~\tools\whisper\models 下最大的 ggml-*.bin）</span>
           <input
             value={form.whisperModel}
             spellCheck={false}
-            placeholder="D:\\models\\ggml-large-v3-turbo.bin"
+            placeholder="C:\\Users\\你\\tools\\whisper\\models\\ggml-large-v3-turbo.bin"
             onChange={(e) => setForm({ ...form, whisperModel: e.target.value })}
           />
         </label>
@@ -56,7 +65,7 @@ export function SettingsDialog() {
           />
         </label>
         <label className="field">
-          <span>模型名（例如 deepseek-chat）</span>
+          <span>模型名——审查是轻任务，选快速模型（deepseek-chat / gemini-flash / qwen-turbo 级），避免 reasoner / pro 等慢速思考模型</span>
           <input
             value={form.llmModel}
             spellCheck={false}

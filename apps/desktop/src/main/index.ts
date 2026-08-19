@@ -246,14 +246,23 @@ void app.whenReady().then(() => {
     shell.showItemInFolder(path);
   });
 
-  ipcMain.handle("asr:available", () => whisperAvailable());
+  ipcMain.handle("asr:available", (_e, override?: string) => whisperAvailable(override));
 
   ipcMain.handle(
     "asr:transcribe",
-    async (_e, opts: { segments: SpeechSegment[]; whisperModel?: string; language?: string }) => {
+    async (
+      _e,
+      opts: {
+        segments: SpeechSegment[];
+        whisperCli?: string;
+        whisperModel?: string;
+        language?: string;
+      },
+    ) => {
       const path = session.currentPath;
       if (!path) throw new Error("没有打开的媒体");
       const asr = await transcribeAudio(path, {
+        binary: opts.whisperCli || undefined,
         model: opts.whisperModel || undefined,
         language: opts.language || "auto",
         onProgress: (ratio) => {

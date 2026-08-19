@@ -9,7 +9,7 @@ export interface RoughcutApi {
   exportCut(plan: unknown, opts: unknown): Promise<unknown>;
   savePlan(plan: unknown, defaultPath: string): Promise<string | null>;
   reveal(path: string): Promise<void>;
-  asrAvailable(): Promise<boolean>;
+  asrAvailable(override?: string): Promise<boolean>;
   transcribe(opts: unknown): Promise<unknown>;
   llmReviewRun(segments: unknown, config: unknown): Promise<unknown>;
   onAsrProgress(cb: (ratio: number) => void): () => void;
@@ -30,7 +30,7 @@ const api: RoughcutApi = {
   exportCut: (plan, opts) => ipcRenderer.invoke("session:export", plan, opts),
   savePlan: (plan, defaultPath) => ipcRenderer.invoke("plan:save", plan, defaultPath),
   reveal: (path) => ipcRenderer.invoke("shell:reveal", path),
-  asrAvailable: () => ipcRenderer.invoke("asr:available"),
+  asrAvailable: (override) => ipcRenderer.invoke("asr:available", override),
   transcribe: (opts) => ipcRenderer.invoke("asr:transcribe", opts),
   llmReviewRun: (segments, config) => ipcRenderer.invoke("asr:llm-review", segments, config),
   onAsrProgress: (cb) => {

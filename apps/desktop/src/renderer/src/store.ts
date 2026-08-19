@@ -22,6 +22,7 @@ export type PlayMode = "idle" | "compact" | "cut" | "raw";
 export type SideTab = "params" | "review";
 
 export interface AppSettings {
+  whisperCli: string;
   whisperModel: string;
   language: string;
   llmBaseUrl: string;
@@ -42,7 +43,14 @@ function loadSettings(): AppSettings {
 }
 
 function defaultSettings(): AppSettings {
-  return { whisperModel: "", language: "auto", llmBaseUrl: "", llmKey: "", llmModel: "" };
+  return {
+    whisperCli: "",
+    whisperModel: "",
+    language: "auto",
+    llmBaseUrl: "",
+    llmKey: "",
+    llmModel: "",
+  };
 }
 
 export function llmConfigOf(s: AppSettings): LlmConfig | null {
@@ -461,6 +469,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
       const { settings } = get();
       const result = await window.roughcut.transcribe({
         segments,
+        whisperCli: settings.whisperCli || undefined,
         whisperModel: settings.whisperModel || undefined,
         language: settings.language || "auto",
       });

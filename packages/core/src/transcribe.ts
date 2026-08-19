@@ -5,8 +5,8 @@
  * The model file is user-provided: ROUGHCUT_WHISPER_MODEL env or option.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { extractWav } from "./ffmpeg.js";
 import type { ProgressCallback, SpeechSegment } from "./types.js";
@@ -20,16 +20,43 @@ function exeName(base: string): string {
   return isWindows ? `${base}.exe` : base;
 }
 
-export function whisperPath(): string {
+/** RoughCut's recommended install location: ~/tools/whisper/{bin,models}. */
+function recommendedDirs(): { bin: string[]; models: string } {
+  const root = join(homedir(), "tools", "whisper");
+  return { bin: [join(root, "bin", "Release"), join(root, "bin"), root], models: join(root, "models") };
+}
+
+function findBinaryIn(dir: string): string | null {
+  for (const c of CANDIDATES) {
+    const candidate = join(dir, exeName(c));
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Locate whisper-cli. Order: explicit override (GUI setting / CLI flag) ->
+ * ROUGHCUT_WHISPER env (binary or directory) -> PATH -> the recommended
+ * install location ~/tools/whisper (survives env vars set after app launch).
+ */
+export function whisperPath(override?: string): string {
+  if (override && override.trim()) {
+    const p = override.trim();
+    if (existsSync(p) && statSync(p).isDirectory()) {
+      const found = findBinaryIn(p);
+      if (found) return found;
+    } else if (existsSync(p)) {
+      return p;
+    }
+    throw new Error(`whisper-cli 路径无效："${p}"`);
+  }
   if (cachedWhisper) return cachedWhisper;
   const env = process.env.ROUGHCUT_WHISPER;
   if (env && env.trim()) {
     const p = env.trim();
     if (existsSync(p) && statSync(p).isDirectory()) {
-      for (const c of CANDIDATES) {
-        const candidate = join(p, exeName(c));
-        if (existsSync(candidate)) return (cachedWhisper = candidate);
-      }
+      const found = findBinaryIn(p);
+      if (found) return (cachedWhisper = found);
     } else if (existsSync(p)) {
       return (cachedWhisper = p);
     }
@@ -39,25 +66,40 @@ export function whisperPath(): string {
     const probe = spawnSync(exeName(c), ["--help"], { stdio: "ignore" });
     if (!probe.error) return (cachedWhisper = exeName(c));
   }
+  for (const dir of recommendedDirs().bin) {
+    const found = findBinaryIn(dir);
+    if (found) return (cachedWhisper = found);
+  }
   throw new Error(
     "whisper-cli not found. Install whisper.cpp (https://github.com/ggml-org/whisper.cpp), " +
-      "put whisper-cli on PATH or set ROUGHCUT_WHISPER, and download a model " +
-      "(e.g. ggml-large-v3-turbo.bin) referenced via ROUGHCUT_WHISPER_MODEL.",
+      "put whisper-cli on PATH or set ROUGHCUT_WHISPER (recommended layout: ~/tools/whisper), " +
+      "and download a model (e.g. ggml-large-v3-turbo.bin) referenced via ROUGHCUT_WHISPER_MODEL.",
   );
 }
 
-export function whisperAvailable(): boolean {
+export function whisperAvailable(override?: string): boolean {
   try {
-    whisperPath();
+    whisperPath(override);
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * Default model file: ROUGHCUT_WHISPER_MODEL env, else the largest
+ * ggml-*.bin found in the recommended models directory.
+ */
 export function defaultWhisperModel(): string | null {
   const m = process.env.ROUGHCUT_WHISPER_MODEL;
-  return m && existsSync(m) ? m : null;
+  if (m && existsSync(m)) return m;
+  const dir = recommendedDirs().models;
+  if (!existsSync(dir)) return null;
+  const bins = readdirSync(dir)
+    .filter((f) => /^ggml-.*\.bin$/.test(f))
+    .map((f) => join(dir, f))
+    .sort((a, b) => statSync(b).size - statSync(a).size);
+  return bins[0] ?? null;
 }
 
 export interface WhisperSegment {
@@ -67,6 +109,8 @@ export interface WhisperSegment {
 }
 
 export interface TranscribeOptions {
+  /** Explicit whisper-cli path (GUI setting); falls back to auto-discovery. */
+  binary?: string;
   /** Path to a ggml/gguf model file. Falls back to ROUGHCUT_WHISPER_MODEL. */
   model?: string;
   /** ISO language code, e.g. "zh"; "auto" lets whisper detect. */
@@ -79,7 +123,7 @@ export async function transcribeAudio(
   inputPath: string,
   opts: TranscribeOptions = {},
 ): Promise<{ segments: WhisperSegment[]; engine: string }> {
-  const bin = whisperPath();
+  const bin = whisperPath(opts.binary);
   const model = opts.model ?? defaultWhisperModel();
   if (!model) {
     throw new Error(

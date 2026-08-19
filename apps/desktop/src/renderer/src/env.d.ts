@@ -28,9 +28,10 @@ declare global {
       exportCut(plan: unknown, opts: ExportOpts): Promise<ExportOutcome>;
       savePlan(plan: unknown, defaultPath: string): Promise<string | null>;
       reveal(path: string): Promise<void>;
-      asrAvailable(): Promise<boolean>;
+      asrAvailable(override?: string): Promise<boolean>;
       transcribe(opts: {
         segments: SpeechSegment[];
+        whisperCli?: string;
         whisperModel?: string;
         language?: string;
       }): Promise<{ engine: string; segments: SpeechSegment[] }>;

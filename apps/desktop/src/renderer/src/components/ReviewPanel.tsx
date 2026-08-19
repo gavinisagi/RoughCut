@@ -17,8 +17,8 @@ export function ReviewPanel() {
 
   const [whisperOk, setWhisperOk] = useState<boolean | null>(null);
   useEffect(() => {
-    void window.roughcut.asrAvailable().then(setWhisperOk);
-  }, []);
+    void window.roughcut.asrAvailable(settings.whisperCli || undefined).then(setWhisperOk);
+  }, [settings.whisperCli]);
 
   const transcript = plan?.transcript;
   const llm = llmConfigOf(settings);
@@ -35,8 +35,8 @@ export function ReviewPanel() {
           </p>
           {whisperOk === false && (
             <p className="review-warn">
-              未找到 whisper-cli。请安装 whisper.cpp 并将其加入 PATH（或设 ROUGHCUT_WHISPER），
-              下载 ggml 模型后在设置里填入路径。
+              未找到 whisper-cli。请安装 whisper.cpp（推荐解压到 ~\tools\whisper\bin，模型放
+              ~\tools\whisper\models 可被自动发现），或在下方设置里直接填 whisper-cli 路径。
             </p>
           )}
           {asrBusy === "transcribe" ? (
