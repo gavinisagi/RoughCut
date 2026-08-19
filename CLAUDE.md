@@ -1,13 +1,13 @@
 # RoughCut · 工程契约（CLAUDE.md）
 
-口播视频一键粗剪工具：检测停顿并收缩到目标间隔。TypeScript monorepo（npm workspaces）：`packages/core`（引擎）、`packages/cli`（bin: roughcut）、`apps/desktop`（Electron + React + electron-vite）。Node ≥ 20；FFmpeg/ffprobe 为外部运行时依赖。
+口播视频一键粗剪工具：检测停顿并收缩到目标间隔。TypeScript monorepo（npm workspaces）：`packages/core`（引擎）、`packages/cli`（bin: roughcut）、`apps/desktop`（Electron + React + electron-vite）。Node ≥ 20；FFmpeg/ffprobe 为外部运行时依赖；whisper.cpp（whisper-cli + 模型文件）为**可选**外部依赖（仅转录/审查功能需要，缺失时该功能给出安装指引、其余功能不受影响）。
 
 ## 不变量（违反即破坏契约）
 
 1. **时间一律用秒（number，浮点）**贯穿 core/CLI/GUI 与 CutPlan JSON。绝不在检测/计划层做帧对齐或毫秒整数化；帧对齐是导出时 ffmpeg 自己的事。
 2. **CutPlan JSON（`packages/core/src/types.ts`，含 `schemaVersion`）是三端契约**：`analyze` 输出 = `cut --plan` 输入 = GUI 计划格式 = 导出报告主体。改字段必须走 dev-constraint 流程并递增 schemaVersion。
 3. **剪完保留的间隔必须来自原片底噪**（删除区间从停顿中段裁出，两侧留 keepAfter/keepBefore）。绝不插入生成的数字静音——底噪突变会有"截断感"。
-4. **所有 ffmpeg/ffprobe 调用走 `packages/core/src/ffmpeg.ts` 的 runner**（定位次序：`ROUGHCUT_FFMPEG` 环境变量 → PATH）。绝不在 CLI/GUI 里裸 spawn。
+4. **所有外部进程调用走 core 对应 runner**：ffmpeg/ffprobe 走 `packages/core/src/ffmpeg.ts`（`ROUGHCUT_FFMPEG` → PATH），whisper-cli 走 `packages/core/src/transcribe.ts`（`ROUGHCUT_WHISPER` → PATH，模型 `ROUGHCUT_WHISPER_MODEL`）。绝不在 CLI/GUI 里裸 spawn。
 5. **filtergraph 一律写临时文件传 `-filter_complex_script`**，绝不内联在命令行（Windows 8191 字符上限，切点多必炸）。
 6. **精确剪辑必须重编码**。绝不用 `-c copy` 做切割（只能关键帧切，误差可达数秒）。
 7. **禁用切点用 `enabled: false` 标记**，绝不从 cuts 数组删除（保证计划可回溯可再启用）。

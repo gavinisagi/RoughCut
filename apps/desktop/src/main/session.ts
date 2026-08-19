@@ -59,6 +59,8 @@ export function fromMediaUrl(url: string): string {
 export class MediaSession {
   private tempDir: string | null = null;
   private proxyToken = 0;
+  /** Source path of the currently open media (for transcribe etc.). */
+  currentPath: string | null = null;
 
   async open(
     path: string,
@@ -69,6 +71,7 @@ export class MediaSession {
     this.dispose();
     this.tempDir = mkdtempSync(join(tmpdir(), "roughcut-gui-"));
     const token = ++this.proxyToken;
+    this.currentPath = path;
 
     const media = await probeMedia(path);
     if (!media.audio) throw new Error("该文件没有音轨，无法按语音停顿剪辑。");
@@ -152,6 +155,7 @@ export class MediaSession {
 
   dispose(): void {
     this.proxyToken++;
+    this.currentPath = null;
     if (this.tempDir) {
       rmSync(this.tempDir, { recursive: true, force: true });
       this.tempDir = null;

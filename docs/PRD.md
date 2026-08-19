@@ -112,6 +112,20 @@ roughcut cut <input.mp4> -o out.mp4 --plan plan.json  # 按（人工改过的）
 - **D011 本地媒体协议必须实现 HTTP Range（206），高清素材播放降级到代理**
   连拍截图测试（--smoke-play，帧级时间码取证）定位到"画面冻在第一帧"的真正根因：自定义 `rcmedia://` 协议此前用 `net.fetch(file://)` 转发，忽略 Range 头返回 200 全文件——Chromium 媒体栈判定源不可寻址，**所有 seek 一律回落到 0**，紧凑预览每跨一个切点画面即回零冻结并陷入 seek 风暴。修复：协议处理器解析 `Range: bytes=`，以文件流返回 206 Partial Content（含 Accept-Ranges/Content-Range）。同时确立播放降级策略：>1080p 或不可解码素材播放一律用 480p 短 GOP 代理（就绪前直播原片，播放中到达则停止后切换），原片仅用于导出。验证手段 `--smoke-play`（自动播放 + 每 650ms 连拍 8 帧、核对烧录时间码递增）留作回归工具。
 
+- **D012（2026-08-19）契约变更：CutPlan schemaVersion 1→2，支持语音段转录与段级删除**
+  需求（v0.2 核心）：口播常见"说错→停顿→重说"，需要在停顿收缩之外**整段删除**重复/口误段。契约扩展三点：
+  1. `cuts[]` 新增 `kind` 字段：`"pause"`（停顿收缩，v1 语义）| `"segment"`（段删除产生）。段删除的 remove 区间由**被删段语音与两侧停顿合并为虚拟大停顿、再按既有 targetGap/padding 公式收缩**生成——删段后的衔接间隔仍精确等于目标间隔、仍来自原片底噪（D003/不变量 3 完整保持）。连续被删段（含其间停顿）并为一个虚拟停顿。
+  2. 顶层新增可选 `transcript` 字段：语音段列表（id、start/end、text、verdict: keep|drop|review、reason、dropped）+ 引擎元信息。无转录时字段缺省，v2 消费者必须容忍其缺失。
+  3. 段删除用 `dropped: true` 标记而非从列表移除（同 cuts.enabled 的可回溯纪律，不变量 7 的延伸）。
+  兼容策略：读入 v1 计划自动迁移（cuts 补 `kind:"pause"`），写出一律 v2。执行端（normalizePlan）从 cuts+transcript 重算派生字段的规则升级为"先按 dropped 段合并虚拟停顿重建 cuts，再算 keepSegments/stats"，pause 类 cut 的 enabled 状态按 pause 区间匹配继承。
+  冲突检查：与 D005（三端一份契约）一致——转录与审查结果进 CutPlan 正是为了不开第二条数据通道；与 D006（enabled 不删除）同构。
+
+- **D013（2026-08-19）转录与审查引擎：whisper.cpp 本地 ASR + OpenAI-compatible LLM，规则检测兜底**
+  - **ASR：whisper.cpp（whisper-cli）作为可选外部依赖**，与 FFmpeg 同模式（`ROUGHCUT_WHISPER` env → PATH 探测；模型路径 `ROUGHCUT_WHISPER_MODEL` 或参数指定，不自动下载大模型文件）。选择理由：完全离线（产品定位"无云端"）、中文质量可靠（推荐 large-v3-turbo / medium）、CPU 推理速度可接受；不引入 Python 依赖链。转录输出按时间重叠对齐到检测出的语音段。
+  - **LLM 审查：OpenAI-compatible Chat API**（baseUrl/apiKey/model 三元组可配，Node 原生 fetch 零依赖），兼容 DeepSeek/通义/Ollama/OpenAI 等一切同协议端点，用户自选云或本地。判定每段 keep/drop/review + 中文理由；提示词固化"重说场景删前留后"。
+  - **未配置 LLM 时退化为规则检测**：相邻段文本归一化后 bigram 相似度超阈判定"前段为重说草稿"推荐删除——免配置也能抓住最高频的重复场景。
+  - GUI 流程：一键"转录并审查"→ 段落列表（文本+verdict 徽章+理由）→ 逐段试听 → 单段勾选/一键应用全部推荐 → 波形以琥珀色标出段删除区（区别停顿红）→ 导出。审查只做**推荐**，删除决策永远留给用户。
+
 ## 7. 验收口径（v0.1）
 - 合成测试媒体（已知停顿位置）上：停顿检出率 100%，切点定位误差 ≤ 30ms；导出时长与计划预期差 ≤ 100ms。
 - 真实口播素材上：默认参数一键剪后，全片紧凑预览听感连贯，无明显切字；误切可通过禁用切点修正。

@@ -1,16 +1,55 @@
 import { create } from "zustand";
 import {
   DEFAULT_PARAMS,
+  applyVerdicts,
   buildPlan,
+  detectPauses,
+  extractSpeechSegments,
+  ruleReview,
   withCutEnabled,
+  withSegmentDropped,
+  withTranscript,
   type AnalysisParams,
   type AudioAnalysis,
   type CutPlan,
+  type LlmConfig,
+  type Transcript,
 } from "@roughcut/core/pure";
 import type { SessionPayload } from "./env";
 import { clipRanges, engine, rangesFrom } from "./audio/PreviewEngine";
 
 export type PlayMode = "idle" | "compact" | "cut" | "raw";
+export type SideTab = "params" | "review";
+
+export interface AppSettings {
+  whisperModel: string;
+  language: string;
+  llmBaseUrl: string;
+  llmKey: string;
+  llmModel: string;
+}
+
+const SETTINGS_KEY = "roughcut-settings";
+
+function loadSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return { ...defaultSettings(), ...(JSON.parse(raw) as Partial<AppSettings>) };
+  } catch {
+    // corrupted settings: fall through to defaults
+  }
+  return defaultSettings();
+}
+
+function defaultSettings(): AppSettings {
+  return { whisperModel: "", language: "auto", llmBaseUrl: "", llmKey: "", llmModel: "" };
+}
+
+export function llmConfigOf(s: AppSettings): LlmConfig | null {
+  return s.llmBaseUrl && s.llmKey && s.llmModel
+    ? { baseUrl: s.llmBaseUrl, apiKey: s.llmKey, model: s.llmModel }
+    : null;
+}
 
 export interface ExportState {
   open: boolean;
@@ -66,6 +105,12 @@ interface RoughcutState {
   playhead: number;
   playMode: PlayMode;
   exportState: ExportState;
+  activeTab: SideTab;
+  settings: AppSettings;
+  settingsOpen: boolean;
+  asrBusy: "transcribe" | "review" | null;
+  asrProgress: number;
+  asrError: string | null;
 
   importVideo(): Promise<void>;
   openPath(path: string): Promise<void>;
@@ -90,6 +135,15 @@ interface RoughcutState {
   runExport(opts: { output: string; alsoAudio: boolean; crf: number; preset: string }): Promise<void>;
   savePlan(): Promise<void>;
   dismissError(): void;
+
+  setActiveTab(tab: SideTab): void;
+  setSettingsOpen(open: boolean): void;
+  saveSettings(patch: Partial<AppSettings>): void;
+  runTranscribe(): Promise<void>;
+  runReview(): Promise<void>;
+  toggleSegmentDropped(id: number): void;
+  applyAllRecommended(): void;
+  playSegment(id: number): void;
 }
 
 function analysisOf(session: SessionPayload): AudioAnalysis {
@@ -120,6 +174,12 @@ export const useStore = create<RoughcutState>((set, get) => ({
   playhead: 0,
   playMode: "idle",
   exportState: { open: false, running: false, ratio: 0, done: null, error: null },
+  activeTab: "params",
+  settings: loadSettings(),
+  settingsOpen: false,
+  asrBusy: null,
+  asrProgress: 0,
+  asrError: null,
 
   async importVideo() {
     const path = await window.roughcut.selectVideo();
@@ -174,7 +234,16 @@ export const useStore = create<RoughcutState>((set, get) => ({
   recompute() {
     const { session, params } = get();
     if (!session) return;
-    const plan = buildPlan(session.media, analysisOf(session), params, "roughcut-gui@0.1.0");
+    // Once transcribed, segment structure comes from the transcript: gap
+    // parameters stay live, threshold/minSilence need a re-transcribe.
+    const transcript = get().plan?.transcript;
+    const plan = buildPlan(
+      session.media,
+      analysisOf(session),
+      params,
+      "roughcut-gui@0.2.0",
+      transcript,
+    );
     const selected = get().selectedCutId;
     set({
       plan,
@@ -357,5 +426,112 @@ export const useStore = create<RoughcutState>((set, get) => ({
 
   dismissError() {
     set({ error: null });
+  },
+
+  setActiveTab(tab) {
+    set({ activeTab: tab });
+  },
+
+  setSettingsOpen(open) {
+    set({ settingsOpen: open });
+  },
+
+  saveSettings(patch) {
+    set((s) => {
+      const settings = { ...s.settings, ...patch };
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch {
+        // non-fatal
+      }
+      return { settings };
+    });
+  },
+
+  async runTranscribe() {
+    const { session, params, plan } = get();
+    if (!session || !plan) return;
+    set({ asrBusy: "transcribe", asrProgress: 0, asrError: null });
+    try {
+      const pauses = detectPauses(analysisOf(session), {
+        thresholdDb: params.thresholdDb,
+        minSilence: params.minSilence,
+      });
+      const segments = extractSpeechSegments(pauses, plan.stats.originalDuration);
+      const { settings } = get();
+      const result = await window.roughcut.transcribe({
+        segments,
+        whisperModel: settings.whisperModel || undefined,
+        language: settings.language || "auto",
+      });
+      const transcript: Transcript = {
+        engine: result.engine,
+        language: settings.language !== "auto" ? settings.language : undefined,
+        reviewedBy: null,
+        segments: result.segments,
+      };
+      set({ plan: withTranscript(get().plan!, transcript), asrBusy: null, activeTab: "review" });
+    } catch (err) {
+      set({ asrBusy: null, asrError: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  async runReview() {
+    const { plan, settings } = get();
+    const transcript = plan?.transcript;
+    if (!plan || !transcript) return;
+    const withText = transcript.segments.filter((s) => s.text);
+    if (withText.length === 0) {
+      set({ asrError: "没有可审查的转录文本" });
+      return;
+    }
+    set({ asrBusy: "review", asrError: null });
+    try {
+      const llm = llmConfigOf(settings);
+      const verdicts = llm
+        ? await window.roughcut.llmReviewRun(withText, llm)
+        : ruleReview(withText);
+      const reviewed: Transcript = {
+        ...transcript,
+        reviewedBy: llm ? llm.model : "similarity-rule",
+        segments: applyVerdicts(transcript.segments, verdicts),
+      };
+      set({ plan: withTranscript(get().plan!, reviewed), asrBusy: null });
+    } catch (err) {
+      set({ asrBusy: null, asrError: err instanceof Error ? err.message : String(err) });
+    }
+  },
+
+  toggleSegmentDropped(id) {
+    const { plan } = get();
+    if (!plan?.transcript) return;
+    const seg = plan.transcript.segments.find((s) => s.id === id);
+    if (!seg) return;
+    set({ plan: withSegmentDropped(plan, id, !seg.dropped) });
+  },
+
+  applyAllRecommended() {
+    const { plan } = get();
+    const transcript = plan?.transcript;
+    if (!plan || !transcript) return;
+    const next: Transcript = {
+      ...transcript,
+      segments: transcript.segments.map((s) =>
+        s.verdict === "drop" ? { ...s, dropped: true } : s,
+      ),
+    };
+    set({ plan: withTranscript(plan, next) });
+  },
+
+  playSegment(id) {
+    const { plan } = get();
+    const seg = plan?.transcript?.segments.find((s) => s.id === id);
+    if (!seg) return;
+    set({ playhead: Math.max(0, seg.start - 0.15) });
+    engine.play([[Math.max(0, seg.start - 0.15), seg.end + 0.15]], {
+      onTime: (t) => set({ playhead: t }),
+      onEnd: () => get().settlePlayback(),
+    });
+    set({ playMode: "cut" });
   },
 }));

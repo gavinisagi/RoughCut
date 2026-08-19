@@ -95,6 +95,44 @@ gap        = e - s
 
 **`cuts` 是 source of truth，`keepSegments`/`stats` 是派生缓存**：加载计划执行时一律从 `cuts`（按 `enabled`）重算派生字段（`normalizePlan`）。手工编辑计划只需翻转 `enabled`，无须同步维护 keepSegments。
 
+### schemaVersion 2（转录与段删除）
+
+```jsonc
+{
+  "schemaVersion": 2,
+  // v1 字段不变，新增：
+  "cuts": [ { "id": 1, "kind": "pause" | "segment", "segmentIds": [3], ... } ],
+  "transcript": {                    // 可选；消费者必须容忍缺失
+    "engine": "whisper-cli/ggml-large-v3-turbo",
+    "language": "zh",
+    "reviewedBy": "deepseek-chat" | "similarity-rule" | null,
+    "segments": [
+      { "id": 3, "start": 24.1, "end": 27.8, "text": "……",
+        "verdict": "drop", "reason": "与下一段重复（重说）", "dropped": true }
+    ]
+  }
+}
+```
+
+- **段删除的时间轴语义**：`dropped` 段的语音区间与两侧停顿**合并为虚拟大停顿**，连续被删段继续并入，然后对虚拟停顿应用与 pause 完全相同的 targetGap/padding 收缩公式——衔接间隔恒为 targetGap 且全部来自原片底噪。产生的 cut 标记 `kind:"segment"` 并携带 `segmentIds`。
+- **执行时重算**（normalizePlan v2）：由 pauses（从 cuts 反推）+ dropped 段重建虚拟停顿 → 重建 cuts → keepSegments/stats；pause 类 cut 的 `enabled` 按停顿区间匹配继承，段类 cut 恒 enabled。
+- 读入 v1 计划自动迁移：cuts 补 `kind:"pause"`；写出一律 v2。
+
+## 4b. 转录与审查（transcribe.ts / review.ts）
+
+```
+语音段(检测补集) ─┐
+输入音频 ─ffmpeg→ 16k WAV ─whisper-cli(-oj)→ 带时间片段 ─按重叠对齐→ segments[].text
+                                                              │
+                     LLM(OpenAI-compatible /chat/completions) ┴→ verdict/reason
+                     （未配置时：相邻段 bigram 相似度规则，检测"重说删前留后"）
+```
+
+- whisper-cli 定位：`ROUGHCUT_WHISPER` env（二进制或目录）→ PATH；模型：`ROUGHCUT_WHISPER_MODEL` env 或参数。所有外部进程走 core 的 runner（不变量 4）。
+- 对齐：whisper 输出片段按与语音段的时间重叠归属（whisper 分段本身跟随语音活动，交叉极少）。
+- LLM：`{baseUrl, apiKey, model}` 三元组（GUI 设置面板 / CLI env `ROUGHCUT_LLM_BASE_URL|KEY|MODEL`），Node 原生 fetch，提示词要求输出 JSON verdicts，宽容解析；审查为纯推荐，不自动删除。
+- 纯函数边界：对齐计算、虚拟停顿合并、规则相似度都是纯函数（可单测）；whisper/LLM/文件 IO 在各自 runner 层。
+
 ## 5. 导出（export.ts）
 
 由 `keepSegments` 生成 filtergraph：

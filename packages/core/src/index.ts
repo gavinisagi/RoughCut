@@ -4,6 +4,8 @@ export * from "./analysis.js";
 export * from "./detect.js";
 export * from "./plan.js";
 export * from "./export.js";
+export * from "./transcribe.js";
+export * from "./review.js";
 
 import { analyzeAudio } from "./analysis.js";
 import { probeMedia } from "./ffmpeg.js";

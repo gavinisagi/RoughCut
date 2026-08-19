@@ -9,6 +9,10 @@ export interface RoughcutApi {
   exportCut(plan: unknown, opts: unknown): Promise<unknown>;
   savePlan(plan: unknown, defaultPath: string): Promise<string | null>;
   reveal(path: string): Promise<void>;
+  asrAvailable(): Promise<boolean>;
+  transcribe(opts: unknown): Promise<unknown>;
+  llmReviewRun(segments: unknown, config: unknown): Promise<unknown>;
+  onAsrProgress(cb: (ratio: number) => void): () => void;
   onExportProgress(cb: (ratio: number) => void): () => void;
   onProxyReady(cb: (url: string) => void): () => void;
   onProxyProgress(cb: (ratio: number) => void): () => void;
@@ -26,6 +30,14 @@ const api: RoughcutApi = {
   exportCut: (plan, opts) => ipcRenderer.invoke("session:export", plan, opts),
   savePlan: (plan, defaultPath) => ipcRenderer.invoke("plan:save", plan, defaultPath),
   reveal: (path) => ipcRenderer.invoke("shell:reveal", path),
+  asrAvailable: () => ipcRenderer.invoke("asr:available"),
+  transcribe: (opts) => ipcRenderer.invoke("asr:transcribe", opts),
+  llmReviewRun: (segments, config) => ipcRenderer.invoke("asr:llm-review", segments, config),
+  onAsrProgress: (cb) => {
+    const listener = (_e: unknown, ratio: number) => cb(ratio);
+    ipcRenderer.on("asr:progress", listener);
+    return () => ipcRenderer.removeListener("asr:progress", listener);
+  },
   onExportProgress: (cb) => {
     const listener = (_e: unknown, ratio: number) => cb(ratio);
     ipcRenderer.on("export:progress", listener);

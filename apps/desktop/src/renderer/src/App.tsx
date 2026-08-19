@@ -5,6 +5,7 @@ import { VideoPane } from "./components/VideoPane";
 import { ParamsPanel } from "./components/ParamsPanel";
 import { Timeline } from "./components/Timeline";
 import { ExportDialog } from "./components/ExportDialog";
+import { SettingsDialog } from "./components/SettingsDialog";
 
 export function App() {
   const session = useStore((s) => s.session);
@@ -12,6 +13,7 @@ export function App() {
   const error = useStore((s) => s.error);
   const dismissError = useStore((s) => s.dismissError);
   const exportOpen = useStore((s) => s.exportState.open);
+  const settingsOpen = useStore((s) => s.settingsOpen);
 
   useEffect(() => {
     const offProxy = window.roughcut.onProxyReady((url) => {
@@ -22,6 +24,9 @@ export function App() {
     });
     const offThumbs = window.roughcut.onThumbsReady((thumbs) => {
       void useStore.getState().thumbsReady(thumbs);
+    });
+    const offAsr = window.roughcut.onAsrProgress((ratio) => {
+      useStore.setState({ asrProgress: ratio });
     });
     const offSmokePlay = window.roughcut.onSmokePlay(() => {
       useStore.getState().playCompact(0);
@@ -45,6 +50,7 @@ export function App() {
       offProxy();
       offProgress();
       offThumbs();
+      offAsr();
       offSmoke();
       offSmokePlay();
     };
@@ -92,6 +98,7 @@ export function App() {
         <EmptyState />
       )}
       {exportOpen && <ExportDialog />}
+      {settingsOpen && <SettingsDialog />}
     </div>
   );
 }

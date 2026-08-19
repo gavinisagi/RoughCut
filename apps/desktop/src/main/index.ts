@@ -9,7 +9,18 @@ import {
   protocol,
   shell,
 } from "electron";
-import { assertPlan, exportCut, normalizePlan, buildReport } from "@roughcut/core";
+import {
+  alignTranscript,
+  assertPlan,
+  buildReport,
+  exportCut,
+  llmReview,
+  normalizePlan,
+  transcribeAudio,
+  whisperAvailable,
+  type LlmConfig,
+  type SpeechSegment,
+} from "@roughcut/core";
 import { MediaSession, fromMediaUrl } from "./session.js";
 
 const session = new MediaSession();
@@ -234,6 +245,30 @@ void app.whenReady().then(() => {
   ipcMain.handle("shell:reveal", (_e, path: string) => {
     shell.showItemInFolder(path);
   });
+
+  ipcMain.handle("asr:available", () => whisperAvailable());
+
+  ipcMain.handle(
+    "asr:transcribe",
+    async (_e, opts: { segments: SpeechSegment[]; whisperModel?: string; language?: string }) => {
+      const path = session.currentPath;
+      if (!path) throw new Error("没有打开的媒体");
+      const asr = await transcribeAudio(path, {
+        model: opts.whisperModel || undefined,
+        language: opts.language || "auto",
+        onProgress: (ratio) => {
+          if (!win.isDestroyed()) win.webContents.send("asr:progress", ratio);
+        },
+      });
+      return { engine: asr.engine, segments: alignTranscript(asr.segments, opts.segments) };
+    },
+  );
+
+  // LLM review runs in main: the renderer's CSP blocks external API calls.
+  ipcMain.handle(
+    "asr:llm-review",
+    async (_e, segments: SpeechSegment[], config: LlmConfig) => llmReview(segments, config),
+  );
 
   ipcMain.handle("app:info", () => ({
     version: app.getVersion(),

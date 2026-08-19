@@ -3,7 +3,7 @@
  * All times are seconds (float). Bump SCHEMA_VERSION on breaking changes.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface VideoStreamInfo {
   codec: string;
@@ -71,15 +71,52 @@ export interface Pause {
   end: number;
 }
 
+/**
+ * v2: how a cut came to be. "pause" shrinks a detected silence (v1 semantics);
+ * "segment" removes dropped speech segment(s) merged with their surrounding
+ * pauses into one virtual pause, shrunk by the same targetGap formula.
+ */
+export type CutKind = "pause" | "segment";
+
 export interface Cut {
   id: number;
-  /** The detected pause this cut shrinks: [start, end]. */
+  kind: CutKind;
+  /** The (possibly virtual) pause this cut shrinks: [start, end]. */
   pause: [number, number];
   /** The interval actually removed from the timeline: [start, end]. */
   remove: [number, number];
   removedDuration: number;
   /** Disabled cuts stay in the list (contract: never delete, see CLAUDE.md). */
   enabled: boolean;
+  /** For kind "segment": ids of the dropped speech segments swallowed. */
+  segmentIds?: number[];
+}
+
+/** Review verdict for one speech segment. */
+export type SegmentVerdict = "keep" | "drop" | "review";
+
+export interface SpeechSegment {
+  id: number;
+  /** Speech interval on the source timeline (pause complement). */
+  start: number;
+  end: number;
+  /** Transcribed text; null when not (yet) transcribed. */
+  text: string | null;
+  /** Reviewer recommendation (absent before review). */
+  verdict?: SegmentVerdict;
+  /** Short human-readable reason for the verdict. */
+  reason?: string;
+  /** User-confirmed removal. Never delete entries; flip this flag. */
+  dropped: boolean;
+}
+
+export interface Transcript {
+  /** e.g. "whisper-cli/ggml-large-v3-turbo.bin" */
+  engine: string;
+  language?: string;
+  /** Reviewer identity: model id, "similarity-rule", or null if unreviewed. */
+  reviewedBy: string | null;
+  segments: SpeechSegment[];
 }
 
 export interface PlanStats {
@@ -102,6 +139,8 @@ export interface CutPlan {
   /** Intervals of the source timeline kept in the output, honoring cut.enabled. */
   keepSegments: [number, number][];
   stats: PlanStats;
+  /** v2, optional: speech segments with text and review state. */
+  transcript?: Transcript;
 }
 
 export interface ExportOptions {

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import type { LlmConfig, SpeechSegment, VerdictItem } from "@roughcut/core/pure";
 import type { SessionPayload } from "../../main/session";
 
 export interface ExportOpts {
@@ -27,6 +28,14 @@ declare global {
       exportCut(plan: unknown, opts: ExportOpts): Promise<ExportOutcome>;
       savePlan(plan: unknown, defaultPath: string): Promise<string | null>;
       reveal(path: string): Promise<void>;
+      asrAvailable(): Promise<boolean>;
+      transcribe(opts: {
+        segments: SpeechSegment[];
+        whisperModel?: string;
+        language?: string;
+      }): Promise<{ engine: string; segments: SpeechSegment[] }>;
+      llmReviewRun(segments: SpeechSegment[], config: LlmConfig): Promise<VerdictItem[]>;
+      onAsrProgress(cb: (ratio: number) => void): () => void;
       onExportProgress(cb: (ratio: number) => void): () => void;
       onProxyReady(cb: (url: string) => void): () => void;
       onProxyProgress(cb: (ratio: number) => void): () => void;

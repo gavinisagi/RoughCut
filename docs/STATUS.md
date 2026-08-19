@@ -1,7 +1,8 @@
 # RoughCut · 进度看板（STATUS）
 
-> 状态：v0.1.0 已发布至 GitHub（2026-08-17，https://github.com/gavinisagi/RoughCut）。
+> 状态：v0.1.0 已发布至 GitHub（2026-08-17，https://github.com/gavinisagi/RoughCut）；v0.2.0 开发中。
 > Milestone v0.1.0 —— 可用的一键粗剪：GUI + CLI 全流程跑通并通过合成媒体验收。✅ 达成
+> Milestone v0.2.0 —— 内容级粗剪：转录 + AI 审查重复/口误段 + 一键删段（D012/D013）。
 
 ## Done
 
@@ -20,12 +21,20 @@
 
 - [x] 播放实时性用户实测通过（"丝滑了"）；GitHub 首推完成（gavinisagi/RoughCut，双语 README + 徽章 + 截图）`v0.1.0`
 
+- [x] CutPlan v2 契约落地：kind/segmentIds/transcript/dropped + v1 迁移 + normalizePlan 段删除重算 + 保留量只取底噪的 clamp（D012）`v0.2.0`
+- [x] 转录：whisper-cli runner（ROUGHCUT_WHISPER/MODEL 探测、进度解析、缺失时清晰指引）+ 16k WAV + 重叠对齐（D013）`v0.2.0`
+- [x] 审查：OpenAI-compatible LLM 客户端（main 进程跑，绕渲染端 CSP）+ 相邻段 bigram 相似度规则兜底（D013）`v0.2.0`
+- [x] CLI：transcribe / review 子命令 + cut --apply-review + LLM env/flag 配置 `v0.2.0`
+- [x] GUI：⚙ 设置面板（whisper/LLM，localStorage）、右侧"内容审查"tab（转录进度/段落列表/verdict 徽章/逐段试听/勾选删除/一键应用推荐）、波形琥珀色段删除区、转录后节奏参数仍实时可调 `v0.2.0`
+- [x] 测试全绿：core 45 单测（合并/首尾/连续段/clamp/enabled 继承/相似度/对齐/LLM mock）+ CLI e2e 9（含 mock transcript 段删除与 --apply-review 时长验证）+ GUI 冒烟 `v0.2.0`
+
 ## In Progress
 
 （无）
 
 ## Backlog
 
+- [ ] v0.2 真实素材验证：装 whisper.cpp + 模型，真口播跑转录审查流（用户操作后回填听感与识别质量结论）`v0.2.0`
 - [ ] 真实素材听感回归：紧凑预览逐切点过一遍，确认默认参数（-38dB / 0.45s）在真实底噪下无误切漏切 `v0.1.0`
 - [ ] 自适应静音阈值（noise floor 估计，免手调 dB）
 - [ ] NVENC/QSV 硬编导出选项

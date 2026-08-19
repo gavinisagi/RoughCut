@@ -24,6 +24,7 @@ RoughCut does exactly one thing, precisely: it makes every pause in your monolog
 - 👂 **Audition before export** — click any cut chip to hear the post-cut transition (±1.2s); play the whole video compactly via gapless Web Audio scheduling, *without exporting first*
 - 🎞️ **NLE-style preview** — click anywhere on the waveform and see that frame immediately: a thumbnail layer answers first, the sharp video frame fades in right after; a filmstrip runs above the waveform
 - ✅ **Vetoable cuts** — detection got one wrong? Un-check that single cut; everything downstream recomputes
+- 📝 **Transcribe & AI review (v0.2)** — local whisper.cpp transcription per speech segment, then an LLM (any OpenAI-compatible endpoint: DeepSeek, Qwen, Ollama, ...) flags retakes, repetitions and broken takes for one-click removal; without an LLM a local similarity rule still catches retakes. Dropped segments merge with their surrounding pauses and land at exactly the target gap
 - 📤 **Clean exports** — H.264 MP4 (CRF configurable) + optional WAV + a JSON cut report of exactly what was removed
 - 🖥️ **GUI + CLI, one engine** — Electron app for the audition workflow, cross-platform CLI for scripting; both share the same core and the same plan JSON contract
 - 🔌 **No cloud, no models** — pure signal-energy analysis over FFmpeg; fast and fully offline
@@ -34,6 +35,7 @@ RoughCut does exactly one thing, precisely: it makes every pause in your monolog
 - **FFmpeg** (with ffprobe) on your `PATH`, or point `ROUGHCUT_FFMPEG` at the binary / its folder
   - Windows: `winget install Gyan.FFmpeg` or `scoop install ffmpeg`
   - macOS: `brew install ffmpeg` · Linux: your package manager
+- *(optional, transcription only)* **whisper.cpp**: put `whisper-cli` on PATH (or set `ROUGHCUT_WHISPER`) and download a [ggml model](https://huggingface.co/ggerganov/whisper.cpp) (e.g. `ggml-large-v3-turbo.bin`), referenced via `ROUGHCUT_WHISPER_MODEL` or the GUI settings
 
 ## Getting started
 
@@ -76,6 +78,17 @@ node packages/cli/bin/roughcut.js analyze input.mp4 --json > plan.json
 #   ...hand-edit "enabled": false on any cut you veto...
 node packages/cli/bin/roughcut.js cut input.mp4 -o output.mp4 --plan plan.json
 ```
+
+Transcribe + review + cut in one pipeline:
+
+```bash
+# Transcribe segments, review them (LLM if ROUGHCUT_LLM_* is set, else similarity rule)
+node packages/cli/bin/roughcut.js transcribe input.mp4 --review -o plan.json
+# Inspect the recommendations, then cut with the drops applied
+node packages/cli/bin/roughcut.js cut input.mp4 -o output.mp4 --plan plan.json --apply-review
+```
+
+LLM config: `--llm-base-url/--llm-key/--llm-model` or env `ROUGHCUT_LLM_BASE_URL/KEY/MODEL` (any OpenAI-compatible endpoint).
 
 `npm link -w @roughcut/cli` puts a global `roughcut` command on your PATH.
 

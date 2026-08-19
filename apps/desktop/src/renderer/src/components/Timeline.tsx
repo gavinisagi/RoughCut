@@ -12,6 +12,10 @@ const C = {
   removed: "rgba(239,68,68,0.16)",
   removedEdge: "rgba(239,68,68,0.65)",
   removedSel: "rgba(239,68,68,0.30)",
+  // Segment (content) removals: amber, distinct from pause-red.
+  segRemoved: "rgba(245,158,11,0.18)",
+  segRemovedEdge: "rgba(245,158,11,0.7)",
+  segRemovedSel: "rgba(245,158,11,0.32)",
   playhead: "#e5e2e1",
   grid: "#242424",
   tick: "#8c909f",
@@ -223,9 +227,13 @@ function Waveform() {
       const rs = x0(cut.remove[0]);
       const re = x0(cut.remove[1]);
       if (re < 0 || rs > w) continue;
-      ctx.fillStyle = cut.id === selectedCutId ? C.removedSel : C.removed;
+      const isSeg = cut.kind === "segment";
+      ctx.fillStyle =
+        cut.id === selectedCutId
+          ? isSeg ? C.segRemovedSel : C.removedSel
+          : isSeg ? C.segRemoved : C.removed;
       ctx.fillRect(rs, rulerH, re - rs, waveH);
-      ctx.strokeStyle = C.removedEdge;
+      ctx.strokeStyle = isSeg ? C.segRemovedEdge : C.removedEdge;
       ctx.lineWidth = cut.id === selectedCutId ? 2 : 1;
       ctx.beginPath();
       ctx.moveTo(rs, rulerH);

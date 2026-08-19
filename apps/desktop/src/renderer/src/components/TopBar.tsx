@@ -7,6 +7,7 @@ export function TopBar() {
   const importVideo = useStore((s) => s.importVideo);
   const savePlan = useStore((s) => s.savePlan);
   const setExportState = useStore((s) => s.setExportState);
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const loading = useStore((s) => s.loading);
 
   const media = session?.media;
@@ -30,6 +31,9 @@ export function TopBar() {
         )}
       </div>
       <div className="topbar-actions">
+        <button className="btn icon" title="设置" onClick={() => setSettingsOpen(true)}>
+          ⚙
+        </button>
         <button className="btn" onClick={() => void importVideo()} disabled={!!loading}>
           导入视频
         </button>

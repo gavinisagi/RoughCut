@@ -98,8 +98,9 @@ describe("roughcut CLI e2e", () => {
     const { stdout, status } = runCli(["analyze", inputPath, "--json"]);
     expect(status).toBe(0);
     const plan = JSON.parse(stdout);
-    expect(plan.schemaVersion).toBe(1);
+    expect(plan.schemaVersion).toBe(2);
     expect(plan.cuts).toHaveLength(2);
+    expect(plan.cuts.every((c: { kind: string }) => c.kind === "pause")).toBe(true);
 
     const [c1, c2] = plan.cuts;
     expect(c1.pause[0]).toBeCloseTo(2.0, 1);
@@ -150,7 +151,7 @@ describe("roughcut CLI e2e", () => {
     expect(probed.durationSec).toBeLessThan(6.85);
 
     const rep = JSON.parse(readFileSync(report, "utf8"));
-    expect(rep.schemaVersion).toBe(1);
+    expect(rep.schemaVersion).toBe(2);
     expect(rep.cuts).toHaveLength(2);
     expect(rep.export.output).toBe(out);
   });
@@ -172,6 +173,60 @@ describe("roughcut CLI e2e", () => {
     // Only the 0.5s cut applies: 8.3 - 0.5 = 7.8
     expect(probed.durationSec).toBeGreaterThan(7.6);
     expect(probed.durationSec).toBeLessThan(8.05);
+  });
+
+  it("cut --plan executes transcript segment drops (v2)", () => {
+    const planPath = join(dir, "plan-v2.json");
+    const a = runCli(["analyze", inputPath, "--json"]);
+    expect(a.status).toBe(0);
+    const plan = JSON.parse(a.stdout);
+    // Known synthesized layout: speech 0-2 / 3.5-5.5 / 6.3-8.3.
+    plan.transcript = {
+      engine: "mock",
+      reviewedBy: null,
+      segments: [
+        { id: 1, start: 0, end: 2, text: "第一段", dropped: false },
+        { id: 2, start: 3.5, end: 5.5, text: "第二段（重说草稿）", dropped: true },
+        { id: 3, start: 6.3, end: 8.3, text: "第三段", dropped: false },
+      ],
+    };
+    writeFileSync(planPath, JSON.stringify(plan), "utf8");
+
+    const out = join(dir, "out-v2.mp4");
+    const r = runCli(["cut", inputPath, "-o", out, "--plan", planPath, "--preset", "ultrafast"]);
+    expect(r.status, r.stderr).toBe(0);
+    const probed = JSON.parse(runCli(["probe", out, "--json"]).stdout);
+    // Dropped middle segment merges both pauses: 8.3 - 4.0 = 4.3.
+    expect(probed.durationSec).toBeGreaterThan(4.1);
+    expect(probed.durationSec).toBeLessThan(4.55);
+  });
+
+  it("cut --plan --apply-review drops verdict:drop segments", () => {
+    const planPath = join(dir, "plan-review.json");
+    const a = runCli(["analyze", inputPath, "--json"]);
+    expect(a.status).toBe(0);
+    const plan = JSON.parse(a.stdout);
+    plan.transcript = {
+      engine: "mock",
+      reviewedBy: "mock-llm",
+      segments: [
+        { id: 1, start: 0, end: 2, text: "第一段", dropped: false },
+        { id: 2, start: 3.5, end: 5.5, text: "第二段", dropped: false },
+        { id: 3, start: 6.3, end: 8.3, text: "第三段（表达差）", verdict: "drop", reason: "表达不佳", dropped: false },
+      ],
+    };
+    writeFileSync(planPath, JSON.stringify(plan), "utf8");
+
+    const out = join(dir, "out-review.mp4");
+    const r = runCli([
+      "cut", inputPath, "-o", out, "--plan", planPath, "--apply-review", "--preset", "ultrafast",
+    ]);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stderr).toContain("1 segment(s) marked dropped");
+    const probed = JSON.parse(runCli(["probe", out, "--json"]).stdout);
+    // Pause cut 1.2s + tail segment removal 2.605s -> ~4.495s output.
+    expect(probed.durationSec).toBeGreaterThan(4.3);
+    expect(probed.durationSec).toBeLessThan(4.75);
   });
 
   it("audio-only export works", () => {

@@ -24,6 +24,7 @@ RoughCut 只做一件事并做准：**让口播里每一处停顿变成你想要
 - 👂 **导出前试听**——点击任意切点试听"剪完后的衔接效果"（前后各 1.2 秒）；**无需导出**即可把整片按剪辑计划无缝快速听一遍（Web Audio 采样级拼接）
 - 🎞️ **剪映式即时预览**——点波形任意位置立刻看到那一帧：缩略图层先答话，高清帧随后无缝盖上；波形上方还有跟随缩放的胶片条
 - ✅ **切点可否决**——检测误切了某处？单独取消勾选那一个切点，其余自动重算
+- 📝 **转录与 AI 审查（v0.2）**——whisper.cpp 本地逐段转录，再由大模型（任意 OpenAI 兼容接口：DeepSeek / 通义 / Ollama 等）标出重说草稿、重复与表达欠佳的段落，一键删除；未配置 LLM 时本地相似度规则同样能抓住重说。被删段与两侧停顿合并收缩，衔接间隔精确等于目标间隔
 - 📤 **干净的导出**——H.264 MP4（CRF 可调）+ 可选纯音频 WAV + 记录每一刀的 JSON 剪辑报告
 - 🖥️ **GUI + 命令行共用一套引擎**——桌面端负责试听审查流，CLI 负责脚本化批处理；两端共享同一份剪辑计划 JSON 契约
 - 🔌 **无云端、无模型**——纯信号能量分析 + FFmpeg，快且完全离线
@@ -34,6 +35,7 @@ RoughCut 只做一件事并做准：**让口播里每一处停顿变成你想要
 - **FFmpeg**（含 ffprobe）在 `PATH` 中，或设 `ROUGHCUT_FFMPEG` 环境变量指向 ffmpeg 程序或其目录
   - Windows：`winget install Gyan.FFmpeg` 或 `scoop install ffmpeg`
   - macOS：`brew install ffmpeg` · Linux：发行版包管理器
+- *（可选，仅转录功能需要）* **whisper.cpp**：把 `whisper-cli` 加入 PATH（或设 `ROUGHCUT_WHISPER`），并下载 [ggml 模型](https://huggingface.co/ggerganov/whisper.cpp)（中文推荐 `ggml-large-v3-turbo.bin`），通过 `ROUGHCUT_WHISPER_MODEL` 或 GUI 设置指定
 
 ## 快速开始
 
@@ -78,6 +80,17 @@ node packages/cli/bin/roughcut.js analyze input.mp4 --json > plan.json
 #   ……把误切切点的 "enabled" 改成 false ……
 node packages/cli/bin/roughcut.js cut input.mp4 -o output.mp4 --plan plan.json
 ```
+
+转录 + 审查 + 剪辑一条龙：
+
+```bash
+# 逐段转录并审查（配置了 ROUGHCUT_LLM_* 用大模型，否则用本地相似度规则）
+node packages/cli/bin/roughcut.js transcribe input.mp4 --review -o plan.json
+# 查看推荐结果后，应用删除建议并剪辑
+node packages/cli/bin/roughcut.js cut input.mp4 -o output.mp4 --plan plan.json --apply-review
+```
+
+LLM 配置：`--llm-base-url/--llm-key/--llm-model` 或环境变量 `ROUGHCUT_LLM_BASE_URL/KEY/MODEL`（任意 OpenAI 兼容接口）。
 
 `npm link -w @roughcut/cli` 之后可全局使用 `roughcut` 命令。
 

@@ -1,7 +1,37 @@
 import { useStore } from "../store";
 import { fmtDuration, fmtTime } from "../util";
+import { ReviewPanel } from "./ReviewPanel";
 
 export function ParamsPanel() {
+  const activeTab = useStore((s) => s.activeTab);
+  const setActiveTab = useStore((s) => s.setActiveTab);
+  const plan = useStore((s) => s.plan);
+  const recommendCount =
+    plan?.transcript?.segments.filter((s) => s.verdict === "drop" && !s.dropped).length ?? 0;
+
+  return (
+    <aside className="params-pane">
+      <div className="side-tabs">
+        <button
+          className={`side-tab ${activeTab === "params" ? "active" : ""}`}
+          onClick={() => setActiveTab("params")}
+        >
+          剪辑参数
+        </button>
+        <button
+          className={`side-tab ${activeTab === "review" ? "active" : ""}`}
+          onClick={() => setActiveTab("review")}
+        >
+          内容审查
+          {recommendCount > 0 && <span className="tab-badge">{recommendCount}</span>}
+        </button>
+      </div>
+      {activeTab === "params" ? <ParamsTab /> : <ReviewPanel />}
+    </aside>
+  );
+}
+
+function ParamsTab() {
   const params = useStore((s) => s.params);
   const setParam = useStore((s) => s.setParam);
   const recompute = useStore((s) => s.recompute);
@@ -19,7 +49,7 @@ export function ParamsPanel() {
   };
 
   return (
-    <aside className="params-pane">
+    <>
       <div className="panel card">
         <h3 className="card-title">剪辑参数</h3>
         <Slider
@@ -112,7 +142,7 @@ export function ParamsPanel() {
           </dl>
         </div>
       )}
-    </aside>
+    </>
   );
 }
 
