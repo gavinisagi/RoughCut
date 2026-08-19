@@ -132,11 +132,12 @@ npm run typecheck
 GUI regression checks (synthesize a clip with known pauses, auto-import, screenshot / burst-capture during playback):
 
 ```bash
-node scripts/make-sample.mjs sample.mp4
+node scripts/make-sample.mjs sample.mp4   # tone-burst clip for e2e (deterministic)
+node scripts/make-demo.mjs demo.mp4       # studio-style frame + Windows TTS speech with a retake
 cd apps/desktop
 npm run build
-npx electron . --smoke ../../sample.mp4               # static screenshot -> smoke.png
-npx electron . --smoke ../../sample.mp4 --smoke-play  # 8-frame playback burst -> smoke-play-XX.png
+npx electron . --smoke ../../demo.mp4                 # static screenshot -> smoke.png
+npx electron . --smoke ../../demo.mp4 --smoke-play    # 8-frame playback burst -> smoke-play-XX.png
 ```
 
 ## Troubleshooting

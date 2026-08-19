@@ -32,9 +32,12 @@
 
 （无）
 
+- [x] whisper 环境落地（用户授权代办）：whisper.cpp v1.9.2 BLAS 版 + ggml-large-v3-turbo 装至 `~/tools/whisper`，用户级环境变量 ROUGHCUT_WHISPER / ROUGHCUT_WHISPER_MODEL 已设 `v0.2.0`
+- [x] 全链路真语音验证：scripts/make-demo.mjs（演播室风格画面 + Windows TTS 含重说语音）→ transcribe --review 中文识别准确、重说段被规则审查标 DROP（相似度 70%）→ cut --apply-review 输出 18.8s→9.1s 与预期一致；README 截图换新画面 `v0.2.0`
+
 ## Backlog
 
-- [ ] v0.2 真实素材验证：装 whisper.cpp + 模型，真口播跑转录审查流（用户操作后回填听感与识别质量结论）`v0.2.0`
+- [ ] v0.2 真实素材验证：用户拿真口播跑转录审查流，回填识别质量与 LLM（DeepSeek 等）审查效果 `v0.2.0`
 - [ ] 真实素材听感回归：紧凑预览逐切点过一遍，确认默认参数（-38dB / 0.45s）在真实底噪下无误切漏切 `v0.1.0`
 - [ ] 自适应静音阈值（noise floor 估计，免手调 dB）
 - [ ] NVENC/QSV 硬编导出选项

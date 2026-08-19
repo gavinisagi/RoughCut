@@ -134,11 +134,12 @@ npm run typecheck
 GUI 回归检查（合成已知停顿的素材、自动导入、静态截图 / 播放中连拍）：
 
 ```bash
-node scripts/make-sample.mjs sample.mp4
+node scripts/make-sample.mjs sample.mp4   # 正弦音测试片（e2e 用，确定性）
+node scripts/make-demo.mjs demo.mp4       # 演播室风格画面 + Windows TTS 含重说语音的演示片
 cd apps/desktop
 npm run build
-npx electron . --smoke ../../sample.mp4               # 静态截图 -> smoke.png
-npx electron . --smoke ../../sample.mp4 --smoke-play  # 播放连拍 8 帧 -> smoke-play-XX.png
+npx electron . --smoke ../../demo.mp4                 # 静态截图 -> smoke.png
+npx electron . --smoke ../../demo.mp4 --smoke-play    # 播放连拍 8 帧 -> smoke-play-XX.png
 ```
 
 ## 常见问题
