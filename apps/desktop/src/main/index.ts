@@ -30,6 +30,8 @@ const SMOKE = smokeIndex >= 0;
 const smokeVideo = SMOKE ? process.argv[smokeIndex + 1] : undefined;
 /** With --smoke-play, start compact preview and capture a burst of frames. */
 const SMOKE_PLAY = process.argv.includes("--smoke-play");
+/** With --smoke-review, transcribe + review before the screenshot. */
+const SMOKE_REVIEW = process.argv.includes("--smoke-review");
 const SMOKE_OUT = resolve(process.cwd(), "smoke.png");
 
 protocol.registerSchemesAsPrivileged([
@@ -289,7 +291,7 @@ void app.whenReady().then(() => {
     win.webContents.on("console-message", (details) => {
       console.log(`[renderer:${details.level}] ${details.message}`);
     });
-    const timeout = setTimeout(() => void captureSmoke(win), 25_000);
+    const timeout = setTimeout(() => void captureSmoke(win), SMOKE_REVIEW ? 240_000 : 25_000);
     ipcMain.handleOnce("smoke:done", async () => {
       clearTimeout(timeout);
       if (SMOKE_PLAY) {
@@ -303,7 +305,7 @@ void app.whenReady().then(() => {
     });
     win.webContents.once("did-finish-load", () => {
       if (smokeVideo && !smokeVideo.startsWith("--")) {
-        win.webContents.send("smoke:open", resolve(smokeVideo));
+        win.webContents.send("smoke:open", resolve(smokeVideo), SMOKE_REVIEW);
       } else {
         setTimeout(() => void captureSmoke(win), 2500);
       }

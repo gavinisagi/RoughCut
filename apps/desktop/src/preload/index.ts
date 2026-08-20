@@ -17,7 +17,7 @@ export interface RoughcutApi {
   onProxyReady(cb: (url: string) => void): () => void;
   onProxyProgress(cb: (ratio: number) => void): () => void;
   onThumbsReady(cb: (thumbs: { intervalSec: number; images: ArrayBuffer[] }) => void): () => void;
-  onSmokeOpen(cb: (path: string) => void): () => void;
+  onSmokeOpen(cb: (path: string, review: boolean) => void): () => void;
   onSmokePlay(cb: () => void): () => void;
   smokeDone(): Promise<void>;
 }
@@ -60,7 +60,7 @@ const api: RoughcutApi = {
     return () => ipcRenderer.removeListener("session:thumbs-ready", listener);
   },
   onSmokeOpen: (cb) => {
-    const listener = (_e: unknown, path: string) => cb(path);
+    const listener = (_e: unknown, path: string, review: boolean) => cb(path, review);
     ipcRenderer.on("smoke:open", listener);
     return () => ipcRenderer.removeListener("smoke:open", listener);
   },

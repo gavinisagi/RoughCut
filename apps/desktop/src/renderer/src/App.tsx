@@ -31,17 +31,18 @@ export function App() {
     const offSmokePlay = window.roughcut.onSmokePlay(() => {
       useStore.getState().playCompact(0);
     });
-    const offSmoke = window.roughcut.onSmokeOpen((path) => {
+    const offSmoke = window.roughcut.onSmokeOpen((path, review) => {
       void (async () => {
-        await useStore.getState().openPath(path);
+        const st = () => useStore.getState();
+        await st().openPath(path);
         // Wait for the filmstrip so the screenshot exercises the full UI.
         const t0 = Date.now();
-        while (
-          useStore.getState().session?.media.video &&
-          !useStore.getState().thumbs &&
-          Date.now() - t0 < 15_000
-        ) {
+        while (st().session?.media.video && !st().thumbs && Date.now() - t0 < 15_000) {
           await new Promise((r) => setTimeout(r, 200));
+        }
+        if (review) {
+          await st().runTranscribe();
+          if (st().plan?.transcript) await st().runReview();
         }
         await window.roughcut.smokeDone();
       })();

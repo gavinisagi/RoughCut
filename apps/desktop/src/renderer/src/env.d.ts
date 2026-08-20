@@ -43,7 +43,7 @@ declare global {
       onThumbsReady(
         cb: (thumbs: { intervalSec: number; images: ArrayBuffer[] }) => void,
       ): () => void;
-      onSmokeOpen(cb: (path: string) => void): () => void;
+      onSmokeOpen(cb: (path: string, review: boolean) => void): () => void;
       onSmokePlay(cb: () => void): () => void;
       smokeDone(): Promise<void>;
     };

@@ -28,6 +28,8 @@
 - [x] GUI：⚙ 设置面板（whisper/LLM，localStorage）、右侧"内容审查"tab（转录进度/段落列表/verdict 徽章/逐段试听/勾选删除/一键应用推荐）、波形琥珀色段删除区、转录后节奏参数仍实时可调 `v0.2.0`
 - [x] 测试全绿：core 45 单测（合并/首尾/连续段/clamp/enabled 继承/相似度/对齐/LLM mock）+ CLI e2e 9（含 mock transcript 段删除与 --apply-review 时长验证）+ GUI 冒烟 `v0.2.0`
 
+- [x] 审查面板按 Stitch 设计稿重构（D014，用户反馈驱动）：紧凑 34px 单行列表、过滤器、琥珀/青色状态标、空段折叠、列表跟随播放、chips 无滚动条；`--smoke-review` 回归模式；真实素材（40 段）与 demo 素材均验证 `v0.2.0`
+
 ## In Progress
 
 （无）

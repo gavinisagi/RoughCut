@@ -11,6 +11,8 @@
 
 ![RoughCut main window](docs/design/screenshot-app.png)
 
+![Transcript review mode](docs/design/screenshot-review.png)
+
 ## Why
 
 If you record teleprompter-driven talking-head videos, your pauses are all over the place — some short, some painfully long, some "brain froze for two seconds" moments. Editors' built-in silence removal gets the gaps wrong and gives you little control over the resulting rhythm, so you end up nudging waveforms cut by cut, fifty times per five-minute clip.
