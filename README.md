@@ -19,17 +19,39 @@ If you record teleprompter-driven talking-head videos, your pauses are all over 
 
 RoughCut does exactly one thing, precisely: it makes every pause in your monologue **exactly as long as you want**, straight from the audio waveform. The output goes into CapCut / Jianying / Resolve as your new raw footage for the creative pass (subtitles, BGM, color).
 
-## Features
+## Features & roadmap
 
-- ⚡ **One-click tightening** — RMS-based pause detection on the audio track; every pause longer than the target gap is shrunk to exactly that gap
-- 🎛️ **Rhythm as a parameter** — target gap, minimum pause, silence threshold, head/tail padding; dragging a slider re-plans instantly, no re-analysis
-- 👂 **Audition before export** — click any cut chip to hear the post-cut transition (±1.2s); play the whole video compactly via gapless Web Audio scheduling, *without exporting first*
-- 🎞️ **NLE-style preview** — click anywhere on the waveform and see that frame immediately: a thumbnail layer answers first, the sharp video frame fades in right after; a filmstrip runs above the waveform
-- ✅ **Vetoable cuts** — detection got one wrong? Un-check that single cut; everything downstream recomputes
-- 📝 **Transcribe & AI review (v0.2)** — local whisper.cpp transcription per speech segment, then an LLM (any OpenAI-compatible endpoint: DeepSeek, Qwen, Ollama, ...) flags retakes, repetitions and broken takes for one-click removal; without an LLM a local similarity rule still catches retakes. Dropped segments merge with their surrounding pauses and land at exactly the target gap
-- 📤 **Clean exports** — H.264 MP4 (CRF configurable) + optional WAV + a JSON cut report of exactly what was removed
-- 🖥️ **GUI + CLI, one engine** — Electron app for the audition workflow, cross-platform CLI for scripting; both share the same core and the same plan JSON contract
-- 🔌 **No cloud, no models** — pure signal-energy analysis over FFmpeg; fast and fully offline
+### ✅ Done
+
+**Rough cutting (v0.1)**
+- ⚡ One-click pause tightening — RMS-based detection; every pause longer than the target gap is shrunk to exactly that gap of original room tone
+- 🎛️ Rhythm as a parameter — target gap / minimum pause / silence threshold / head-tail padding, all re-planning instantly as you drag
+- 👂 Audition before export — per-cut transition preview (±1.2s) and gapless compact preview of the whole video via Web Audio, *no export needed*
+- ✅ Vetoable cuts — un-check any single cut, everything downstream recomputes
+- 📤 Clean exports — H.264 MP4 (CRF configurable) + optional WAV + JSON cut report
+- 🖥️ GUI + CLI on one engine, sharing the same plan JSON contract (offline, no cloud)
+
+**Preview engine (v0.1.x)**
+- 🎞️ NLE-style instant preview — click anywhere, see that frame now: thumbnail layer first, sharp frame right after; filmstrip above the waveform
+- 🚀 4K / HEVC handled — hardware-decode probing, seek-instant low-res proxy with progress, original always used for export
+
+**Transcript & AI review (v0.2)**
+- 📝 Local whisper.cpp transcription, aligned to detected speech segments
+- 🤖 AI review flags retakes / repetitions / broken takes — any OpenAI-compatible LLM (DeepSeek, Qwen, Ollama, ...), with an offline similarity rule as zero-config fallback
+- 🗑️ One-click apply: dropped segments merge with surrounding pauses and land at exactly the target gap; dense review list with filters and per-segment audition
+
+### ⬜ Planned
+
+- Adaptive silence threshold (no manual dB tuning)
+- NVENC / QSV hardware-encoded export
+- Batch queue (multiple files)
+- CapCut/Jianying draft project export (feasibility research)
+- Windows installer packaging (currently runs from source)
+- macOS / Linux GUI verification (CLI is already cross-platform)
+- Draggable cut boundaries, more keyboard shortcuts (JKL)
+- Waveform rendering optimizations for very long footage (>30 min)
+
+The finer-grained development board lives in [docs/STATUS.md](docs/STATUS.md).
 
 ## Requirements
 
