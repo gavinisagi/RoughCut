@@ -60,6 +60,12 @@ export function ReviewPanel() {
   return <SegmentReview />;
 }
 
+function fmtClock(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec - m * 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function SegmentReview() {
   const plan = useStore((s) => s.plan);
   const asrBusy = useStore((s) => s.asrBusy);
@@ -67,6 +73,7 @@ function SegmentReview() {
   const settings = useStore((s) => s.settings);
   const playhead = useStore((s) => s.playhead);
   const playMode = useStore((s) => s.playMode);
+  const selectedSegmentId = useStore((s) => s.selectedSegmentId);
   const runReview = useStore((s) => s.runReview);
   const toggleSegmentDropped = useStore((s) => s.toggleSegmentDropped);
   const applyAllRecommended = useStore((s) => s.applyAllRecommended);
@@ -154,16 +161,42 @@ function SegmentReview() {
         </div>
       </div>
 
+      {transcript.reviewedBy && (
+        pendingDrops.length + reviewCount > 0 ? (
+          <div className="review-result warn">
+            发现 <b>{pendingDrops.length}</b> 段建议删除
+            {reviewCount > 0 ? <>、<b>{reviewCount}</b> 段存疑</> : null}
+            ，已在列表中标出，可逐段试听后应用。
+          </div>
+        ) : (
+          <div className="review-result ok">
+            <span className="ok-mark">✓</span> 未发现明显重说片段。可逐段试听、手动勾选删除
+            {!llm && (
+              <>
+                ；或
+                <button className="link-btn" onClick={() => setSettingsOpen(true)}>
+                  配置 LLM 进行语义级审查
+                </button>
+                （识别表达欠佳、啰嗦的段落）
+              </>
+            )}
+            。
+          </div>
+        )
+      )}
+
       <div className="segment-list" ref={listRef}>
         {visible.map((seg) => {
           const empty = !seg.text;
           const recommended = seg.verdict === "drop" && !seg.dropped;
+          const expanded = selectedSegmentId === seg.id && !empty;
           const cls = [
             "seg-row",
             empty ? "empty" : "",
             recommended ? "recommended" : "",
             seg.dropped ? "dropped" : "",
             playingId === seg.id ? "playing" : "",
+            expanded ? "expanded" : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -172,34 +205,45 @@ function SegmentReview() {
               key={seg.id}
               data-seg={seg.id}
               className={cls}
-              title={seg.reason ? `${seg.reason}（点击试听）` : "点击试听此段"}
+              title={expanded ? undefined : "点击试听并展开"}
               onClick={() => playSegment(seg.id)}
             >
-              <input
-                type="checkbox"
-                checked={seg.dropped}
-                onClick={(e) => e.stopPropagation()}
-                onChange={() => toggleSegmentDropped(seg.id)}
-                title={seg.dropped ? "恢复此段" : "删除此段"}
-              />
-              <span className="seg-idx mono">{seg.id}</span>
-              <span className="seg-time mono">{fmtTime(seg.start)}</span>
-              <span className="seg-text">{seg.text ?? "无文本"}</span>
-              {seg.verdict && !empty && (
-                <span className={`verdict ${seg.verdict}`}>
-                  {seg.verdict === "drop" ? "建议删" : seg.verdict === "review" ? "存疑" : "保留"}
-                </span>
+              <div className="seg-line">
+                <input
+                  type="checkbox"
+                  checked={seg.dropped}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSegmentDropped(seg.id)}
+                  title={seg.dropped ? "恢复此段" : "删除此段"}
+                />
+                <span className="seg-idx mono">{seg.id}</span>
+                <span className="seg-time mono">{fmtClock(seg.start)}</span>
+                <span className="seg-text">{seg.text ?? "无文本"}</span>
+                {(seg.verdict === "drop" || seg.verdict === "review") && !empty && (
+                  <span className={`verdict ${seg.verdict}`}>
+                    {seg.verdict === "drop" ? "建议删" : "存疑"}
+                  </span>
+                )}
+                <button
+                  className="seg-play"
+                  title="试听此段"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playSegment(seg.id);
+                  }}
+                >
+                  ▶
+                </button>
+              </div>
+              {expanded && (
+                <div className="seg-detail" onClick={(e) => e.stopPropagation()}>
+                  <p className="seg-full-text">{seg.text}</p>
+                  {seg.reason && <p className="seg-reason">AI：{seg.reason}</p>}
+                  <div className="seg-detail-meta mono">
+                    {fmtTime(seg.start)} – {fmtTime(seg.end)} · {(seg.end - seg.start).toFixed(1)}s
+                  </div>
+                </div>
               )}
-              <button
-                className="seg-play"
-                title="试听此段"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  playSegment(seg.id);
-                }}
-              >
-                ▶
-              </button>
             </div>
           );
         })}

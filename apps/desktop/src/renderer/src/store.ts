@@ -110,6 +110,8 @@ interface RoughcutState {
   params: AnalysisParams;
   plan: CutPlan | null;
   selectedCutId: number | null;
+  /** Segment highlighted/expanded in the review list. */
+  selectedSegmentId: number | null;
   playhead: number;
   playMode: PlayMode;
   exportState: ExportState;
@@ -179,6 +181,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
   params: { ...DEFAULT_PARAMS },
   plan: null,
   selectedCutId: null,
+  selectedSegmentId: null,
   playhead: 0,
   playMode: "idle",
   exportState: { open: false, running: false, ratio: 0, done: null, error: null },
@@ -536,7 +539,7 @@ export const useStore = create<RoughcutState>((set, get) => ({
     const { plan } = get();
     const seg = plan?.transcript?.segments.find((s) => s.id === id);
     if (!seg) return;
-    set({ playhead: Math.max(0, seg.start - 0.15) });
+    set({ selectedSegmentId: id, playhead: Math.max(0, seg.start - 0.15) });
     engine.play([[Math.max(0, seg.start - 0.15), seg.end + 0.15]], {
       onTime: (t) => set({ playhead: t }),
       onEnd: () => get().settlePlayback(),
