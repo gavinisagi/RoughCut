@@ -37,15 +37,13 @@ function ParamsTab() {
   const recompute = useStore((s) => s.recompute);
   const plan = useStore((s) => s.plan);
   const selectCut = useStore((s) => s.selectCut);
-  const playCut = useStore((s) => s.playCut);
 
+  // Recompute and select the first cut for orientation. No auto-play: an
+  // unrequested 2s audition after clicking read as "the app got stuck".
   const oneClick = () => {
     recompute();
     const first = useStore.getState().plan?.cuts.find((c) => c.enabled);
-    if (first) {
-      selectCut(first.id);
-      playCut(first.id);
-    }
+    if (first) selectCut(first.id);
   };
 
   return (

@@ -157,8 +157,17 @@ export class MediaSession {
     this.proxyToken++;
     this.currentPath = null;
     if (this.tempDir) {
-      rmSync(this.tempDir, { recursive: true, force: true });
+      const dir = this.tempDir;
       this.tempDir = null;
+      try {
+        // Windows keeps proxy/preview files locked while the <video> element
+        // still holds them (window closing, or re-import); retry briefly and
+        // otherwise leave the leftovers to the OS temp cleaner. Cleanup must
+        // never crash the main process.
+        rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
+      } catch (err) {
+        console.warn(`temp cleanup failed for ${dir} (left to OS):`, err);
+      }
     }
   }
 }
